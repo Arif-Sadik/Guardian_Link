@@ -14,9 +14,14 @@ public class UserService {
 
     /**
      * Creates a new user (unapproved by default).
+     * 
+     * @return true if created successfully, false if username exists or save failed
      */
-    public void createUser(User user) {
-        userRepository.save(user);
+    public boolean createUser(User user) {
+        if (userRepository.usernameExists(user.getUsername())) {
+            return false;
+        }
+        return userRepository.save(user);
     }
 
     /**

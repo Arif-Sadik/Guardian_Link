@@ -55,8 +55,10 @@ public class UserRepository {
 
     /**
      * Inserts a new user into the database.
+     * 
+     * @return true if saved successfully, false otherwise
      */
-    public void save(User user) {
+    public boolean save(User user) {
         String sql = "INSERT INTO users (username, password, role, approved) VALUES (?, ?, ?, ?)";
         try {
             PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
@@ -64,11 +66,21 @@ public class UserRepository {
             ps.setString(2, user.getPassword());
             ps.setString(3, user.getRole().name());
             ps.setInt(4, user.isApproved() ? 1 : 0);
-            ps.executeUpdate();
+            int rowsAffected = ps.executeUpdate();
             ps.close();
+            return rowsAffected > 0;
         } catch (SQLException e) {
+            System.err.println("Failed to save user: " + e.getMessage());
             e.printStackTrace();
+            return false;
         }
+    }
+
+    /**
+     * Checks if a username already exists.
+     */
+    public boolean usernameExists(String username) {
+        return findByUsername(username) != null;
     }
 
     /**

@@ -10,7 +10,14 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import model.entity.Child;
 import model.user.User;
+import service.ChildService;
+import util.ThemeManager;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * Organization Admin (Caregiver) dashboard — Figma-matched.
@@ -24,15 +31,37 @@ public class OrgAdminController {
     private VBox sidebar;
     private String activePage = "dashboard";
 
-    private static final String PRIMARY = "#2563eb";
-    private static final String SECONDARY = "#16a34a";
-    private static final String WARNING = "#f59e0b";
-    private static final String DESTRUCTIVE = "#dc2626";
-    private static final String BG = "#f8f9fa";
-    private static final String CARD = "#ffffff";
-    private static final String BORDER = "#e2e8f0";
-    private static final String MUTED = "#f1f5f9";
-    private static final String MUTED_FG = "#64748b";
+    private final ChildService childService = new ChildService();
+
+    private static final String PRIMARY = ThemeManager.PRIMARY;
+    private static final String SECONDARY = ThemeManager.SECONDARY;
+    private static final String WARNING = ThemeManager.WARNING;
+    private static final String DESTRUCTIVE = ThemeManager.DESTRUCTIVE;
+
+    // Theme-aware color getters
+    private String BG() {
+        return ThemeManager.getBg();
+    }
+
+    private String CARD() {
+        return ThemeManager.getCard();
+    }
+
+    private String BORDER() {
+        return ThemeManager.getBorder();
+    }
+
+    private String MUTED() {
+        return ThemeManager.getMuted();
+    }
+
+    private String MUTED_FG() {
+        return ThemeManager.getMutedFg();
+    }
+
+    private String TEXT() {
+        return ThemeManager.getText();
+    }
 
     public OrgAdminController(Stage stage, User user) {
         this.stage = stage;
@@ -44,11 +73,25 @@ public class OrgAdminController {
         root.setTop(buildHeader());
         root.setLeft(buildSidebar());
         root.setCenter(buildDashboardPage());
-        root.setStyle("-fx-background-color: " + BG + ";");
+        root.setStyle("-fx-background-color: " + BG() + ";");
         Scene scene = new Scene(root, 1280, 800);
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 Organization Admin");
         stage.show();
+    }
+
+    private void refreshTheme() {
+        root.setStyle("-fx-background-color: " + BG() + ";");
+        root.setTop(buildHeader());
+        root.setLeft(buildSidebar());
+        // Refresh current page
+        switch (activePage) {
+            case "dashboard" -> root.setCenter(buildDashboardPage());
+            case "children" -> root.setCenter(buildChildrenPage());
+            case "sponsorship" -> root.setCenter(buildSponsorshipPage());
+            case "alerts" -> root.setCenter(buildAlertsPage());
+            case "reports" -> root.setCenter(buildReportsPage());
+        }
     }
 
     // ═══════════ HEADER ═══════════
@@ -58,44 +101,53 @@ public class OrgAdminController {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPrefHeight(64);
         header.setStyle(
-                "-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
 
+        // Gradient circle logo
         StackPane logo = new StackPane();
-        logo.setPrefSize(40, 40);
-        logo.setStyle("-fx-background-color: " + PRIMARY + "; -fx-background-radius: 4;");
+        logo.setPrefSize(48, 48);
+        logo.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2); -fx-background-radius: 24;");
         Label gl = new Label("GL");
-        gl.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
+        gl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
         gl.setTextFill(Color.WHITE);
         logo.getChildren().add(gl);
 
-        VBox titleBox = new VBox(2);
-        titleBox.setPadding(new Insets(0, 0, 0, 12));
+        VBox titleBox = new VBox(0);
+        titleBox.setPadding(new Insets(0, 0, 0, 14));
         Label t1 = new Label("GuardianLink");
-        t1.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 15));
+        t1.setFont(Font.font("Segoe UI", FontWeight.BOLD, 20));
+        t1.setTextFill(Color.web(TEXT()));
         Label t2 = new Label("NGO Welfare Management System");
-        t2.setFont(Font.font("Segoe UI", 11));
-        t2.setTextFill(Color.web(MUTED_FG));
+        t2.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+        t2.setTextFill(Color.web(MUTED_FG()));
         titleBox.getChildren().addAll(t1, t2);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        VBox userBox = new VBox(2);
-        userBox.setAlignment(Pos.CENTER_RIGHT);
+        // User type display box
+        HBox userTypeBox = new HBox(8);
+        userTypeBox.setAlignment(Pos.CENTER_RIGHT);
+        userTypeBox.setPadding(new Insets(8, 16, 8, 16));
+        userTypeBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 8; -fx-border-color: "
+                + BORDER() + "; -fx-border-radius: 8;");
+
+        Label userIcon = new Label("");
+        userIcon.setFont(Font.font("Segoe UI", 14));
+
+        VBox userInfo = new VBox(2);
         Label uName = new Label(user.getUsername());
         uName.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        uName.setTextFill(Color.web(TEXT()));
         Label uRole = new Label("Organization Admin");
-        uRole.setFont(Font.font("Segoe UI", 11));
-        uRole.setTextFill(Color.web(MUTED_FG));
-        userBox.getChildren().addAll(uName, uRole);
+        uRole.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+        uRole.setTextFill(Color.web(PRIMARY));
+        userInfo.getChildren().addAll(uName, uRole);
 
-        Button logoutBtn = new Button("\u23FB");
-        logoutBtn.setStyle(
-                "-fx-background-color: " + MUTED + "; -fx-background-radius: 4; -fx-padding: 6 10; -fx-cursor: hand;");
-        logoutBtn.setOnAction(e -> new AuthController(stage).show());
+        userTypeBox.getChildren().addAll(userIcon, userInfo);
 
-        header.getChildren().addAll(logo, titleBox, spacer, userBox, logoutBtn);
-        HBox.setMargin(logoutBtn, new Insets(0, 0, 0, 16));
+        header.getChildren().addAll(logo, titleBox, spacer, userTypeBox);
         return header;
     }
 
@@ -104,32 +156,84 @@ public class OrgAdminController {
         sidebar = new VBox(4);
         sidebar.setPrefWidth(240);
         sidebar.setStyle(
-                "-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER + "; -fx-border-width: 0 1 0 0;");
+                "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 1 0 0;");
 
         Label navLabel = new Label("Navigation");
         navLabel.setFont(Font.font("Segoe UI", 11));
-        navLabel.setTextFill(Color.web(MUTED_FG));
+        navLabel.setTextFill(Color.web(MUTED_FG()));
         navLabel.setPadding(new Insets(16, 16, 8, 16));
         sidebar.getChildren().add(navLabel);
 
         VBox navItems = new VBox(2);
         navItems.setPadding(new Insets(0, 8, 0, 8));
         navItems.getChildren().addAll(
-                sidebarBtn("\uD83D\uDCCA  Dashboard", "dashboard"),
-                sidebarBtn("\uD83D\uDC64  Child Profiles", "children"),
-                sidebarBtn("\u2764  Sponsorships", "sponsorship"),
-                sidebarBtn("\uD83D\uDD14  Alerts", "alerts"),
-                sidebarBtn("\uD83D\uDCC4  Reports & Audit", "reports"));
+                sidebarBtn("Dashboard", "dashboard"),
+                sidebarBtn("Child Profiles", "children"),
+                sidebarBtn("Sponsorships", "sponsorship"),
+                sidebarBtn("Alerts", "alerts"),
+                sidebarBtn("Reports & Audit", "reports"));
         sidebar.getChildren().add(navItems);
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        // Theme toggle section
+        VBox themeSection = new VBox(8);
+        themeSection.setPadding(new Insets(12, 8, 12, 8));
+        themeSection.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 1 0 0 0;");
+
+        Label themeLabel = new Label("Theme");
+        themeLabel.setFont(Font.font("Segoe UI", 11));
+        themeLabel.setTextFill(Color.web(MUTED_FG()));
+        themeLabel.setPadding(new Insets(0, 8, 0, 8));
+
+        HBox themeToggle = new HBox(8);
+        themeToggle.setAlignment(Pos.CENTER_LEFT);
+        themeToggle.setPadding(new Insets(0, 8, 0, 8));
+
+        Button lightBtn = new Button("Light");
+        Button darkBtn = new Button("Dark");
+
+        String activeStyle = "-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-cursor: hand; -fx-font-size: 11px;";
+        String inactiveStyle = "-fx-background-color: " + MUTED() + "; -fx-text-fill: " + TEXT()
+                + "; -fx-background-radius: 4; -fx-padding: 6 12; -fx-cursor: hand; -fx-font-size: 11px;";
+
+        lightBtn.setStyle(ThemeManager.isDarkMode() ? inactiveStyle : activeStyle);
+        darkBtn.setStyle(ThemeManager.isDarkMode() ? activeStyle : inactiveStyle);
+
+        lightBtn.setOnAction(e -> {
+            ThemeManager.setDarkMode(false);
+            refreshTheme();
+        });
+        darkBtn.setOnAction(e -> {
+            ThemeManager.setDarkMode(true);
+            refreshTheme();
+        });
+
+        themeToggle.getChildren().addAll(lightBtn, darkBtn);
+        themeSection.getChildren().addAll(themeLabel, themeToggle);
+
+        // Logout button
+        VBox logoutSection = new VBox(8);
+        logoutSection.setPadding(new Insets(8, 8, 8, 8));
+
+        Button logoutBtn = new Button("Logout");
+        logoutBtn.setMaxWidth(Double.MAX_VALUE);
+        logoutBtn.setAlignment(Pos.CENTER_LEFT);
+        logoutBtn.setFont(Font.font("Segoe UI", 13));
+        logoutBtn.setStyle("-fx-background-color: " + DESTRUCTIVE
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand;");
+        logoutBtn.setOnAction(e -> new AuthController(stage).show());
+        logoutSection.getChildren().add(logoutBtn);
+
+        // Version label
         Label ver = new Label("v1.0.0 | Academic Project");
         ver.setFont(Font.font("Segoe UI", 11));
-        ver.setTextFill(Color.web(MUTED_FG));
-        ver.setPadding(new Insets(16));
-        ver.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 1 0 0 0;");
-        sidebar.getChildren().addAll(spacer, ver);
+        ver.setTextFill(Color.web(MUTED_FG()));
+        ver.setPadding(new Insets(8, 16, 16, 16));
+
+        sidebar.getChildren().addAll(spacer, themeSection, logoutSection, ver);
         return sidebar;
     }
 
@@ -159,7 +263,8 @@ public class OrgAdminController {
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
         else
             btn.setStyle(
-                    "-fx-background-color: transparent; -fx-text-fill: #1a1a1a; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
+                    "-fx-background-color: transparent; -fx-text-fill: " + TEXT()
+                            + "; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
     }
 
     private void refreshSidebar() {
@@ -190,19 +295,19 @@ public class OrgAdminController {
     private ScrollPane wrapScroll(VBox page) {
         ScrollPane sp = new ScrollPane(page);
         sp.setFitToWidth(true);
-        sp.setStyle("-fx-background: " + BG + "; -fx-background-color: " + BG + ";");
+        sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
         return sp;
     }
 
     private VBox statCard(String label, String value, String detail, String detailColor) {
         VBox card = new VBox(4);
         card.setPadding(new Insets(16));
-        card.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         HBox.setHgrow(card, Priority.ALWAYS);
         Label l = new Label(label);
         l.setFont(Font.font("Segoe UI", 11));
-        l.setTextFill(Color.web(MUTED_FG));
+        l.setTextFill(Color.web(MUTED_FG()));
         Label v = new Label(value);
         v.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
         Label d = new Label(detail);
@@ -210,6 +315,305 @@ public class OrgAdminController {
         d.setTextFill(Color.web(detailColor));
         card.getChildren().addAll(l, v, d);
         return card;
+    }
+
+    private VBox createQuickActionCard(String title, String description) {
+        VBox card = new VBox(4);
+        card.setPadding(new Insets(16));
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;");
+        HBox.setHgrow(card, Priority.ALWAYS);
+        Label t = new Label(title);
+        t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        Label d = new Label(description);
+        d.setFont(Font.font("Segoe UI", 11));
+        d.setTextFill(Color.web(MUTED_FG()));
+        card.getChildren().addAll(t, d);
+
+        // Hover effect
+        card.setOnMouseEntered(e -> card.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-color: " + PRIMARY
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;"));
+        card.setOnMouseExited(e -> card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;"));
+        return card;
+    }
+
+    private void showAddChildDialog() {
+        Dialog<Child> dialog = new Dialog<>();
+        dialog.setTitle("Add New Child");
+        dialog.setHeaderText("Register a new child profile");
+
+        // Set the button types
+        ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        // Create the form
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField nameField = new TextField();
+        nameField.setPromptText("Full Name");
+        TextField ageField = new TextField();
+        ageField.setPromptText("Age");
+        ComboBox<String> genderBox = new ComboBox<>();
+        genderBox.getItems().addAll("Male", "Female", "Other");
+        genderBox.setPromptText("Select Gender");
+        TextField dobField = new TextField();
+        dobField.setPromptText("YYYY-MM-DD");
+        TextField orgField = new TextField();
+        orgField.setPromptText("Organization");
+        orgField.setText("GuardianLink NGO");
+
+        grid.add(new Label("Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(new Label("Age:"), 0, 1);
+        grid.add(ageField, 1, 1);
+        grid.add(new Label("Gender:"), 0, 2);
+        grid.add(genderBox, 1, 2);
+        grid.add(new Label("Date of Birth:"), 0, 3);
+        grid.add(dobField, 1, 3);
+        grid.add(new Label("Organization:"), 0, 4);
+        grid.add(orgField, 1, 4);
+
+        dialog.getDialogPane().setContent(grid);
+
+        // Convert the result
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                try {
+                    Child child = new Child();
+                    child.setName(nameField.getText());
+                    child.setAge(Integer.parseInt(ageField.getText()));
+                    child.setGender(genderBox.getValue());
+                    child.setDateOfBirth(dobField.getText());
+                    child.setOrganization(orgField.getText());
+                    child.setStatus("Active");
+                    return child;
+                } catch (NumberFormatException e) {
+                    showAlert("Error", "Please enter a valid age.");
+                    return null;
+                }
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(child -> {
+            if (child != null) {
+                childService.addChild(child);
+                showAlert("Success", "Child '" + child.getName() + "' has been registered successfully!");
+                // Refresh the dashboard
+                root.setCenter(buildDashboardPage());
+            }
+        });
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private VBox buildChildrenTableFromDB(String heading) {
+        VBox card = new VBox(0);
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        HBox hdr = new HBox();
+        hdr.setPadding(new Insets(16));
+        hdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        Label t = new Label(heading);
+        t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        hdr.getChildren().add(t);
+
+        GridPane grid = new GridPane();
+        String[] cols = { "Child ID", "Name", "Age", "Status", "Gender", "Actions" };
+        for (int i = 0; i < cols.length; i++) {
+            Label h = new Label(cols[i]);
+            h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+            h.setPadding(new Insets(8, 16, 8, 16));
+            h.setMaxWidth(Double.MAX_VALUE);
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
+            grid.add(h, i, 0);
+        }
+
+        // Load children from database
+        List<Child> children = childService.getAllChildren();
+        int row = 1;
+        for (Child child : children) {
+            // Child ID
+            Label idLabel = new Label("CH-" + String.format("%04d", child.getId()));
+            idLabel.setFont(Font.font("Consolas", 12));
+            idLabel.setPadding(new Insets(12, 16, 12, 16));
+            idLabel.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+            grid.add(idLabel, 0, row);
+
+            // Name
+            Label nameLabel = new Label(child.getName());
+            nameLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+            nameLabel.setPadding(new Insets(12, 16, 12, 16));
+            nameLabel.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+            grid.add(nameLabel, 1, row);
+
+            // Age
+            Label ageLabel = new Label(String.valueOf(child.getAge()));
+            ageLabel.setFont(Font.font("Segoe UI", 13));
+            ageLabel.setPadding(new Insets(12, 16, 12, 16));
+            ageLabel.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+            grid.add(ageLabel, 2, row);
+
+            // Status badge
+            String status = child.getStatus() != null ? child.getStatus() : "Active";
+            Label badge = new Label(status);
+            badge.setFont(Font.font("Segoe UI", 11));
+            String bc = status.equals("Active") ? SECONDARY + "1A" : WARNING + "1A";
+            String fc = status.equals("Active") ? SECONDARY : WARNING;
+            badge.setStyle("-fx-background-color: " + bc + "; -fx-text-fill: " + fc
+                    + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+            HBox badgeWrapper = new HBox(badge);
+            badgeWrapper.setPadding(new Insets(12, 16, 12, 16));
+            badgeWrapper.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+            grid.add(badgeWrapper, 3, row);
+
+            // Gender
+            Label genderLabel = new Label(child.getGender() != null ? child.getGender() : "N/A");
+            genderLabel.setFont(Font.font("Segoe UI", 13));
+            genderLabel.setTextFill(Color.web(MUTED_FG()));
+            genderLabel.setPadding(new Insets(12, 16, 12, 16));
+            genderLabel.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+            grid.add(genderLabel, 4, row);
+
+            // Actions - View Profile link
+            final int childId = child.getId();
+            final String childName = child.getName();
+            Hyperlink link = new Hyperlink("View Profile");
+            link.setFont(Font.font("Segoe UI", 13));
+            link.setTextFill(Color.web(PRIMARY));
+            link.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0; -fx-padding: 12 16;");
+            link.setOnAction(e -> showChildProfile(childId, childName));
+            grid.add(link, 5, row);
+
+            row++;
+        }
+
+        // If no children, show empty message
+        if (children.isEmpty()) {
+            Label emptyLabel = new Label("No children registered yet. Click 'Add Child Profile' to add one.");
+            emptyLabel.setFont(Font.font("Segoe UI", 13));
+            emptyLabel.setTextFill(Color.web(MUTED_FG()));
+            emptyLabel.setPadding(new Insets(24));
+            grid.add(emptyLabel, 0, 1);
+            GridPane.setColumnSpan(emptyLabel, 6);
+        }
+
+        card.getChildren().addAll(hdr, grid);
+        return card;
+    }
+
+    private void showChildProfile(int childId, String childName) {
+        Child child = childService.getChildById(childId);
+        if (child == null) {
+            showAlert("Error", "Child not found.");
+            return;
+        }
+
+        // Navigate to Child Profiles page and show this child's details
+        activePage = "children";
+        refreshSidebar();
+        root.setCenter(buildChildProfileView(child));
+    }
+
+    private ScrollPane buildChildProfileView(Child child) {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        // Back button
+        Button backBtn = new Button("Back to Dashboard");
+        backBtn.setStyle("-fx-background-color: " + MUTED() + "; -fx-text-fill: " + TEXT()
+                + "; -fx-background-radius: 4; -fx-padding: 8 16; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> {
+            activePage = "dashboard";
+            refreshSidebar();
+            root.setCenter(buildDashboardPage());
+        });
+
+        Label title = new Label("Child Profile: " + child.getName());
+        title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        Label sub = new Label("View and manage child information");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
+
+        // Profile header
+        VBox profileHeader = new VBox(8);
+        profileHeader.setPadding(new Insets(24));
+        profileHeader.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        HBox phRow = new HBox(16);
+        phRow.setAlignment(Pos.CENTER_LEFT);
+        StackPane avatar = new StackPane();
+        avatar.setPrefSize(80, 80);
+        avatar.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-background-radius: 40;");
+        String initials = child.getName().length() > 1
+                ? child.getName().substring(0, 1).toUpperCase() + (child.getName().contains(" ")
+                        ? child.getName().split(" ")[1].substring(0, 1).toUpperCase()
+                        : "")
+                : child.getName().substring(0, 1).toUpperCase();
+        Label initialsLabel = new Label(initials);
+        initialsLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        initialsLabel.setTextFill(Color.web(PRIMARY));
+        avatar.getChildren().add(initialsLabel);
+
+        VBox info = new VBox(4);
+        HBox.setHgrow(info, Priority.ALWAYS);
+        Label name = new Label(child.getName());
+        name.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
+        Label cid = new Label("Child ID: CH-" + String.format("%04d", child.getId()));
+        cid.setFont(Font.font("Segoe UI", 12));
+        cid.setTextFill(Color.web(MUTED_FG()));
+        HBox meta = new HBox(16);
+        meta.getChildren().addAll(
+                metaLabel("Age:", child.getAge() + " years"),
+                metaLabel("Gender:", child.getGender() != null ? child.getGender() : "N/A"),
+                statusBadge(child.getStatus() != null ? child.getStatus() : "Active"));
+        info.getChildren().addAll(name, cid, meta);
+
+        phRow.getChildren().addAll(avatar, info);
+        profileHeader.getChildren().add(phRow);
+
+        // Details card
+        VBox detailsCard = new VBox(12);
+        detailsCard.setPadding(new Insets(24));
+        detailsCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Label detailsTitle = new Label("Personal Information");
+        detailsTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+
+        GridPane detailsGrid = new GridPane();
+        detailsGrid.setHgap(24);
+        detailsGrid.setVgap(12);
+
+        detailsGrid.add(new Label("Full Name:"), 0, 0);
+        detailsGrid.add(new Label(child.getName()), 1, 0);
+        detailsGrid.add(new Label("Age:"), 0, 1);
+        detailsGrid.add(new Label(String.valueOf(child.getAge())), 1, 1);
+        detailsGrid.add(new Label("Gender:"), 0, 2);
+        detailsGrid.add(new Label(child.getGender() != null ? child.getGender() : "N/A"), 1, 2);
+        detailsGrid.add(new Label("Date of Birth:"), 0, 3);
+        detailsGrid.add(new Label(child.getDateOfBirth() != null ? child.getDateOfBirth() : "N/A"), 1, 3);
+        detailsGrid.add(new Label("Organization:"), 0, 4);
+        detailsGrid.add(new Label(child.getOrganization() != null ? child.getOrganization() : "N/A"), 1, 4);
+        detailsGrid.add(new Label("Status:"), 0, 5);
+        detailsGrid.add(statusBadge(child.getStatus() != null ? child.getStatus() : "Active"), 1, 5);
+
+        detailsCard.getChildren().addAll(detailsTitle, detailsGrid);
+
+        page.getChildren().addAll(backBtn, new VBox(4, title, sub), profileHeader, detailsCard);
+        return wrapScroll(page);
     }
 
     // ═══════════ DASHBOARD PAGE ═══════════
@@ -221,49 +625,44 @@ public class OrgAdminController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("Child welfare monitoring and case management");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
                 statCard("Total Children", "248", "+12 this month", SECONDARY),
                 statCard("Active Cases", "45", "Currently monitored", PRIMARY),
                 statCard("Pending Alerts", "8", "Requires attention", WARNING),
-                statCard("Appointments", "12", "This week", MUTED_FG));
+                statCard("Appointments", "12", "This week", MUTED_FG()));
 
         // Quick Actions
         Label qaTitle = new Label("Quick Actions");
         qaTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         HBox qaCards = new HBox(12);
-        String[][] qas = {
-                { "\uD83D\uDC64", "Add Child Profile", "Register new child" },
-                { "\uD83D\uDD14", "View Alerts", "Check pending alerts" },
-                { "\uD83D\uDCC4", "Generate Report", "Create welfare report" }
-        };
-        for (String[] qa : qas) {
-            VBox card = new VBox(4);
-            card.setPadding(new Insets(16));
-            card.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
-                    + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;");
-            HBox.setHgrow(card, Priority.ALWAYS);
-            Label ic = new Label(qa[0]);
-            ic.setFont(Font.font("Segoe UI Emoji", 18));
-            Label t = new Label(qa[1]);
-            t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
-            Label d = new Label(qa[2]);
-            d.setFont(Font.font("Segoe UI", 11));
-            d.setTextFill(Color.web(MUTED_FG));
-            card.getChildren().addAll(ic, t, d);
-            qaCards.getChildren().add(card);
-        }
 
-        // Assigned Children table
-        VBox tableCard = buildChildrenTable("Assigned Children", new String[][] {
-                { "CH-1024", "Tahmid Rahman", "10", "Active", "Jan 25, 2026" },
-                { "CH-1025", "Mugdho Hossain", "8", "Active", "Jan 24, 2026" },
-                { "CH-1026", "Sokina Akter", "12", "Active", "Jan 23, 2026" },
-                { "CH-1027", "Nabil Khan", "9", "Pending Review", "Jan 22, 2026" },
-                { "CH-1028", "Faiza Ahmed", "11", "Active", "Jan 21, 2026" },
+        // Add Child Profile card
+        VBox addChildCard = createQuickActionCard("Add Child Profile", "Register new child");
+        addChildCard.setOnMouseClicked(e -> showAddChildDialog());
+
+        // View Alerts card
+        VBox viewAlertsCard = createQuickActionCard("View Alerts", "Check pending alerts");
+        viewAlertsCard.setOnMouseClicked(e -> {
+            activePage = "alerts";
+            refreshSidebar();
+            root.setCenter(buildAlertsPage());
         });
+
+        // Generate Report card
+        VBox genReportCard = createQuickActionCard("Generate Report", "Create welfare report");
+        genReportCard.setOnMouseClicked(e -> {
+            activePage = "reports";
+            refreshSidebar();
+            root.setCenter(buildReportsPage());
+        });
+
+        qaCards.getChildren().addAll(addChildCard, viewAlertsCard, genReportCard);
+
+        // Assigned Children table - load from database
+        VBox tableCard = buildChildrenTableFromDB("Assigned Children");
 
         page.getChildren().addAll(new VBox(4, title, sub), stats, qaTitle, qaCards, tableCard);
         return wrapScroll(page);
@@ -271,12 +670,12 @@ public class OrgAdminController {
 
     private VBox buildChildrenTable(String heading, String[][] rows) {
         VBox card = new VBox(0);
-        card.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
         HBox hdr = new HBox();
         hdr.setPadding(new Insets(16));
-        hdr.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+        hdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
         Label t = new Label(heading);
         t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         hdr.getChildren().add(t);
@@ -288,7 +687,7 @@ public class OrgAdminController {
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
             h.setPadding(new Insets(8, 16, 8, 16));
             h.setMaxWidth(Double.MAX_VALUE);
-            h.setStyle("-fx-background-color: " + MUTED + ";");
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
             grid.add(h, i, 0);
         }
         for (int r = 0; r < rows.length; r++) {
@@ -302,7 +701,7 @@ public class OrgAdminController {
                             + "; -fx-background-radius: 4; -fx-padding: 2 8;");
                     HBox w = new HBox(badge);
                     w.setPadding(new Insets(12, 16, 12, 16));
-                    w.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                    w.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                     grid.add(w, c, r + 1);
                     continue;
                 }
@@ -311,15 +710,15 @@ public class OrgAdminController {
                 if (c == 1)
                     cell.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
                 if (c == 4)
-                    cell.setTextFill(Color.web(MUTED_FG));
+                    cell.setTextFill(Color.web(MUTED_FG()));
                 cell.setPadding(new Insets(12, 16, 12, 16));
-                cell.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                 grid.add(cell, c, r + 1);
             }
             Hyperlink link = new Hyperlink("View Profile");
             link.setFont(Font.font("Segoe UI", 13));
             link.setTextFill(Color.web(PRIMARY));
-            link.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0; -fx-padding: 12 16;");
+            link.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0; -fx-padding: 12 16;");
             grid.add(link, 5, r + 1);
         }
         card.getChildren().addAll(hdr, grid);
@@ -335,12 +734,12 @@ public class OrgAdminController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("View and update child information");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         // Profile header
         VBox profileHeader = new VBox(8);
         profileHeader.setPadding(new Insets(24));
-        profileHeader.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        profileHeader.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
         HBox phRow = new HBox(16);
@@ -359,7 +758,7 @@ public class OrgAdminController {
         name.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
         Label cid = new Label("Child ID: CH-1024");
         cid.setFont(Font.font("Segoe UI", 12));
-        cid.setTextFill(Color.web(MUTED_FG));
+        cid.setTextFill(Color.web(MUTED_FG()));
         HBox meta = new HBox(16);
         meta.getChildren().addAll(
                 metaLabel("Age:", "10 years"),
@@ -377,7 +776,7 @@ public class OrgAdminController {
         // Tab pane
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabs.setStyle("-fx-background-color: " + CARD + ";");
+        tabs.setStyle("-fx-background-color: " + CARD() + ";");
 
         tabs.getTabs().addAll(
                 makeTab("Personal Information", buildPersonalTab()),
@@ -398,7 +797,7 @@ public class OrgAdminController {
     private HBox metaLabel(String label, String value) {
         Label l = new Label(label);
         l.setFont(Font.font("Segoe UI", 12));
-        l.setTextFill(Color.web(MUTED_FG));
+        l.setTextFill(Color.web(MUTED_FG()));
         Label v = new Label(value);
         v.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 12));
         return new HBox(4, l, v);
@@ -445,7 +844,7 @@ public class OrgAdminController {
             Label h = new Label(cols[i]);
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
             h.setPadding(new Insets(8, 12, 8, 12));
-            h.setStyle("-fx-background-color: " + MUTED + ";");
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
             h.setMaxWidth(Double.MAX_VALUE);
             grid.add(h, i, 0);
         }
@@ -459,7 +858,7 @@ public class OrgAdminController {
                 Label cl = new Label(rows[r][c]);
                 cl.setFont(Font.font("Segoe UI", 13));
                 cl.setPadding(new Insets(8, 12, 8, 12));
-                cl.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                cl.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                 grid.add(cl, c, r + 1);
             }
         }
@@ -488,7 +887,7 @@ public class OrgAdminController {
             Label h = new Label(cols[i]);
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
             h.setPadding(new Insets(8, 12, 8, 12));
-            h.setStyle("-fx-background-color: " + MUTED + ";");
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
             h.setMaxWidth(Double.MAX_VALUE);
             grid.add(h, i, 0);
         }
@@ -508,7 +907,7 @@ public class OrgAdminController {
                     cl.setTextFill(Color.web(SECONDARY));
                 }
                 cl.setPadding(new Insets(8, 12, 8, 12));
-                cl.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                cl.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                 grid.add(cl, c, r + 1);
             }
         }
@@ -534,7 +933,7 @@ public class OrgAdminController {
         for (String[] c : cases) {
             VBox entry = new VBox(4);
             entry.setPadding(new Insets(12));
-            entry.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+            entry.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                     + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
             HBox top = new HBox();
             VBox left = new VBox(2);
@@ -542,17 +941,17 @@ public class OrgAdminController {
             type.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
             Label date = new Label(c[0]);
             date.setFont(Font.font("Segoe UI", 11));
-            date.setTextFill(Color.web(MUTED_FG));
+            date.setTextFill(Color.web(MUTED_FG()));
             left.getChildren().addAll(type, date);
             Region sp = new Region();
             HBox.setHgrow(sp, Priority.ALWAYS);
             Label by = new Label("By: " + c[3]);
             by.setFont(Font.font("Segoe UI", 11));
-            by.setTextFill(Color.web(MUTED_FG));
+            by.setTextFill(Color.web(MUTED_FG()));
             top.getChildren().addAll(left, sp, by);
             Label desc = new Label(c[2]);
             desc.setFont(Font.font("Segoe UI", 13));
-            desc.setTextFill(Color.web(MUTED_FG));
+            desc.setTextFill(Color.web(MUTED_FG()));
             entry.getChildren().addAll(top, desc);
             entries.getChildren().add(entry);
         }
@@ -594,30 +993,30 @@ public class OrgAdminController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("Track donations and fund utilization");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Current Balance", "$450", "Available funds", SECONDARY),
-                statCard("Total Received", "$2,850", "All time", MUTED_FG),
-                statCard("Total Spent", "$2,400", "All time", MUTED_FG),
-                statCard("Active Sponsor", "Emily Johnson", "Since Jan 2024", MUTED_FG));
+                statCard("Current Balance", "৳48,000", "Available funds", SECONDARY),
+                statCard("Total Received", "৳304,000", "All time", MUTED_FG()),
+                statCard("Total Spent", "৳256,000", "All time", MUTED_FG()),
+                statCard("Active Sponsor", "Emily Johnson", "Since Jan 2024", MUTED_FG()));
 
         // Fund Utilization
         VBox fundCard = new VBox(16);
         fundCard.setPadding(new Insets(16));
-        fundCard.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        fundCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         Label fundTitle = new Label("Fund Utilization by Category");
         fundTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         fundCard.getChildren().add(fundTitle);
 
         String[][] funds = {
-                { "Education", "$1,200", "50", "#2563eb" },
-                { "Medical Care", "$600", "25", "#16a34a" },
-                { "Food & Nutrition", "$360", "15", "#f59e0b" },
-                { "Clothing", "$180", "7.5", "#8b5cf6" },
-                { "Other", "$60", "2.5", "#ec4899" },
+                { "Education", "৳120,000", "50", "#2563eb" },
+                { "Medical Care", "৳60,000", "25", "#16a34a" },
+                { "Food & Nutrition", "৳36,000", "15", "#f59e0b" },
+                { "Clothing", "৳18,000", "7.5", "#8b5cf6" },
+                { "Other", "৳6,000", "2.5", "#ec4899" },
         };
         for (String[] f : funds) {
             VBox row = new VBox(4);
@@ -633,7 +1032,7 @@ public class OrgAdminController {
             StackPane barBg = new StackPane();
             barBg.setPrefHeight(8);
             barBg.setMaxHeight(8);
-            barBg.setStyle("-fx-background-color: " + MUTED + "; -fx-background-radius: 4;");
+            barBg.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 4;");
             StackPane barFill = new StackPane();
             barFill.setPrefHeight(8);
             barFill.setMaxHeight(8);
@@ -669,7 +1068,7 @@ public class OrgAdminController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("Monitor system alerts and emergencies");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
@@ -690,14 +1089,14 @@ public class OrgAdminController {
                 { "info", "New Donor Registration", "ALT-005", "2 days ago", "New donor pending verification" },
         };
         for (String[] a : alerts) {
-            String borderC = a[0].equals("critical") ? DESTRUCTIVE : BORDER;
+            String borderC = a[0].equals("critical") ? DESTRUCTIVE : BORDER();
             String bgC = a[0].equals("critical") ? DESTRUCTIVE + "1A"
                     : a[0].equals("warning") ? WARNING + "1A" : PRIMARY + "1A";
             String iconC = a[0].equals("critical") ? DESTRUCTIVE : a[0].equals("warning") ? WARNING : PRIMARY;
 
             VBox card = new VBox(8);
             card.setPadding(new Insets(16));
-            card.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + borderC
+            card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
                     + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
             HBox top = new HBox(12);
@@ -714,7 +1113,7 @@ public class OrgAdminController {
             aTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
             Label aDesc = new Label(a[4]);
             aDesc.setFont(Font.font("Segoe UI", 13));
-            aDesc.setTextFill(Color.web(MUTED_FG));
+            aDesc.setTextFill(Color.web(MUTED_FG()));
             HBox btns = new HBox(8);
             Button vd = new Button("View Details");
             vd.setStyle("-fx-background-color: " + PRIMARY
@@ -727,7 +1126,7 @@ public class OrgAdminController {
 
             Label time = new Label(a[3]);
             time.setFont(Font.font("Segoe UI", 11));
-            time.setTextFill(Color.web(MUTED_FG));
+            time.setTextFill(Color.web(MUTED_FG()));
             top.getChildren().addAll(iconBox, info2, time);
             card.getChildren().add(top);
             alertsList.getChildren().add(card);
@@ -746,11 +1145,11 @@ public class OrgAdminController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("Generate welfare reports and view audit trails");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         VBox genCard = new VBox(16);
         genCard.setPadding(new Insets(16));
-        genCard.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        genCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         Label genTitle = new Label("Report Generator");
         genTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
@@ -798,7 +1197,7 @@ public class OrgAdminController {
         Label l = new Label(label);
         l.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         TextField f = new TextField(value);
-        f.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        f.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-font-size: 13px;");
         box.getChildren().addAll(l, f);
         return box;
@@ -810,7 +1209,7 @@ public class OrgAdminController {
         l.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         TextArea a = new TextArea(value);
         a.setPrefRowCount(3);
-        a.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        a.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-font-size: 13px;");
         box.getChildren().addAll(l, a);
         return box;
@@ -819,11 +1218,11 @@ public class OrgAdminController {
     private VBox vitalCard(String label, String value) {
         VBox box = new VBox(4);
         box.setPadding(new Insets(12));
-        box.setStyle("-fx-background-color: " + MUTED + "; -fx-background-radius: 8;");
+        box.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 8;");
         HBox.setHgrow(box, Priority.ALWAYS);
         Label l = new Label(label);
         l.setFont(Font.font("Segoe UI", 11));
-        l.setTextFill(Color.web(MUTED_FG));
+        l.setTextFill(Color.web(MUTED_FG()));
         Label v = new Label(value);
         v.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
         v.setTextFill(Color.web(SECONDARY));

@@ -11,6 +11,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import model.user.User;
+import util.ThemeManager;
 
 /**
  * Donor dashboard — Figma-matched.
@@ -24,14 +25,36 @@ public class DonorController {
     private VBox sidebar;
     private String activePage = "dashboard";
 
-    private static final String PRIMARY = "#2563eb";
-    private static final String SECONDARY = "#16a34a";
-    private static final String WARNING = "#f59e0b";
-    private static final String BG = "#f8f9fa";
-    private static final String CARD = "#ffffff";
-    private static final String BORDER = "#e2e8f0";
-    private static final String MUTED = "#f1f5f9";
-    private static final String MUTED_FG = "#64748b";
+    private static final String PRIMARY = ThemeManager.PRIMARY;
+    private static final String SECONDARY = ThemeManager.SECONDARY;
+    private static final String WARNING = ThemeManager.WARNING;
+
+    // Theme-aware color getters
+    private String BG() {
+        return ThemeManager.getBg();
+    }
+
+    private String CARD() {
+        return ThemeManager.getCard();
+    }
+
+    private String BORDER() {
+        return ThemeManager.getBorder();
+    }
+
+    private String MUTED() {
+        return ThemeManager.getMuted();
+    }
+
+    private String MUTED_FG() {
+        return ThemeManager.getMutedFg();
+    }
+
+    private String TEXT() {
+        return ThemeManager.getText();
+    }
+
+    private static final String DESTRUCTIVE = ThemeManager.DESTRUCTIVE;
 
     public DonorController(Stage stage, User user) {
         this.stage = stage;
@@ -43,11 +66,24 @@ public class DonorController {
         root.setTop(buildHeader());
         root.setLeft(buildSidebar());
         root.setCenter(buildDashboardPage());
-        root.setStyle("-fx-background-color: " + BG + ";");
+        root.setStyle("-fx-background-color: " + BG() + ";");
         Scene scene = new Scene(root, 1280, 800);
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 Donor Dashboard");
         stage.show();
+    }
+
+    private void refreshTheme() {
+        root.setStyle("-fx-background-color: " + BG() + ";");
+        root.setTop(buildHeader());
+        root.setLeft(buildSidebar());
+        // Refresh current page
+        switch (activePage) {
+            case "dashboard" -> root.setCenter(buildDashboardPage());
+            case "sponsorship" -> root.setCenter(buildSponsorshipPage());
+            case "donations" -> root.setCenter(buildDonationsPage());
+            case "reports" -> root.setCenter(buildReportsPage());
+        }
     }
 
     // ═══════════ HEADER ═══════════
@@ -57,44 +93,53 @@ public class DonorController {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPrefHeight(64);
         header.setStyle(
-                "-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
 
+        // Gradient circle logo
         StackPane logo = new StackPane();
-        logo.setPrefSize(40, 40);
-        logo.setStyle("-fx-background-color: " + PRIMARY + "; -fx-background-radius: 4;");
+        logo.setPrefSize(48, 48);
+        logo.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2); -fx-background-radius: 24;");
         Label gl = new Label("GL");
-        gl.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
+        gl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
         gl.setTextFill(Color.WHITE);
         logo.getChildren().add(gl);
 
-        VBox titleBox = new VBox(2);
-        titleBox.setPadding(new Insets(0, 0, 0, 12));
+        VBox titleBox = new VBox(0);
+        titleBox.setPadding(new Insets(0, 0, 0, 14));
         Label t1 = new Label("GuardianLink");
-        t1.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 15));
+        t1.setFont(Font.font("Segoe UI", FontWeight.BOLD, 20));
+        t1.setTextFill(Color.web(TEXT()));
         Label t2 = new Label("NGO Welfare Management System");
-        t2.setFont(Font.font("Segoe UI", 11));
-        t2.setTextFill(Color.web(MUTED_FG));
+        t2.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+        t2.setTextFill(Color.web(MUTED_FG()));
         titleBox.getChildren().addAll(t1, t2);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        VBox userBox = new VBox(2);
-        userBox.setAlignment(Pos.CENTER_RIGHT);
+        // User type display box
+        HBox userTypeBox = new HBox(8);
+        userTypeBox.setAlignment(Pos.CENTER_RIGHT);
+        userTypeBox.setPadding(new Insets(8, 16, 8, 16));
+        userTypeBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 8; -fx-border-color: "
+                + BORDER() + "; -fx-border-radius: 8;");
+
+        Label userIcon = new Label("");
+        userIcon.setFont(Font.font("Segoe UI", 14));
+
+        VBox userInfo = new VBox(2);
         Label uName = new Label(user.getUsername());
         uName.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        uName.setTextFill(Color.web(TEXT()));
         Label uRole = new Label("Donor");
-        uRole.setFont(Font.font("Segoe UI", 11));
-        uRole.setTextFill(Color.web(MUTED_FG));
-        userBox.getChildren().addAll(uName, uRole);
+        uRole.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+        uRole.setTextFill(Color.web(PRIMARY));
+        userInfo.getChildren().addAll(uName, uRole);
 
-        Button logoutBtn = new Button("\u23FB");
-        logoutBtn.setStyle(
-                "-fx-background-color: " + MUTED + "; -fx-background-radius: 4; -fx-padding: 6 10; -fx-cursor: hand;");
-        logoutBtn.setOnAction(e -> new AuthController(stage).show());
+        userTypeBox.getChildren().addAll(userIcon, userInfo);
 
-        header.getChildren().addAll(logo, titleBox, spacer, userBox, logoutBtn);
-        HBox.setMargin(logoutBtn, new Insets(0, 0, 0, 16));
+        header.getChildren().addAll(logo, titleBox, spacer, userTypeBox);
         return header;
     }
 
@@ -103,31 +148,83 @@ public class DonorController {
         sidebar = new VBox(4);
         sidebar.setPrefWidth(240);
         sidebar.setStyle(
-                "-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER + "; -fx-border-width: 0 1 0 0;");
+                "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 1 0 0;");
 
         Label navLabel = new Label("Navigation");
         navLabel.setFont(Font.font("Segoe UI", 11));
-        navLabel.setTextFill(Color.web(MUTED_FG));
+        navLabel.setTextFill(Color.web(MUTED_FG()));
         navLabel.setPadding(new Insets(16, 16, 8, 16));
         sidebar.getChildren().add(navLabel);
 
         VBox navItems = new VBox(2);
         navItems.setPadding(new Insets(0, 8, 0, 8));
         navItems.getChildren().addAll(
-                sidebarBtn("\uD83D\uDCCA  Dashboard", "dashboard"),
-                sidebarBtn("\u2764  Sponsorships", "sponsorship"),
-                sidebarBtn("\uD83D\uDCB0  Donations", "donations"),
-                sidebarBtn("\uD83D\uDCC4  Reports", "reports"));
+                sidebarBtn("Dashboard", "dashboard"),
+                sidebarBtn("Sponsorships", "sponsorship"),
+                sidebarBtn("Donations", "donations"),
+                sidebarBtn("Reports", "reports"));
         sidebar.getChildren().add(navItems);
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
+
+        // Theme toggle section
+        VBox themeSection = new VBox(8);
+        themeSection.setPadding(new Insets(12, 8, 12, 8));
+        themeSection.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 1 0 0 0;");
+
+        Label themeLabel = new Label("Theme");
+        themeLabel.setFont(Font.font("Segoe UI", 11));
+        themeLabel.setTextFill(Color.web(MUTED_FG()));
+        themeLabel.setPadding(new Insets(0, 8, 0, 8));
+
+        HBox themeToggle = new HBox(8);
+        themeToggle.setAlignment(Pos.CENTER_LEFT);
+        themeToggle.setPadding(new Insets(0, 8, 0, 8));
+
+        Button lightBtn = new Button("Light");
+        Button darkBtn = new Button("Dark");
+
+        String activeStyle = "-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-cursor: hand; -fx-font-size: 11px;";
+        String inactiveStyle = "-fx-background-color: " + MUTED() + "; -fx-text-fill: " + TEXT()
+                + "; -fx-background-radius: 4; -fx-padding: 6 12; -fx-cursor: hand; -fx-font-size: 11px;";
+
+        lightBtn.setStyle(ThemeManager.isDarkMode() ? inactiveStyle : activeStyle);
+        darkBtn.setStyle(ThemeManager.isDarkMode() ? activeStyle : inactiveStyle);
+
+        lightBtn.setOnAction(e -> {
+            ThemeManager.setDarkMode(false);
+            refreshTheme();
+        });
+        darkBtn.setOnAction(e -> {
+            ThemeManager.setDarkMode(true);
+            refreshTheme();
+        });
+
+        themeToggle.getChildren().addAll(lightBtn, darkBtn);
+        themeSection.getChildren().addAll(themeLabel, themeToggle);
+
+        // Logout button
+        VBox logoutSection = new VBox(8);
+        logoutSection.setPadding(new Insets(8, 8, 8, 8));
+
+        Button logoutBtn = new Button("Logout");
+        logoutBtn.setMaxWidth(Double.MAX_VALUE);
+        logoutBtn.setAlignment(Pos.CENTER_LEFT);
+        logoutBtn.setFont(Font.font("Segoe UI", 13));
+        logoutBtn.setStyle("-fx-background-color: " + DESTRUCTIVE
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand;");
+        logoutBtn.setOnAction(e -> new AuthController(stage).show());
+        logoutSection.getChildren().add(logoutBtn);
+
+        // Version label
         Label ver = new Label("v1.0.0 | Academic Project");
         ver.setFont(Font.font("Segoe UI", 11));
-        ver.setTextFill(Color.web(MUTED_FG));
-        ver.setPadding(new Insets(16));
-        ver.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 1 0 0 0;");
-        sidebar.getChildren().addAll(spacer, ver);
+        ver.setTextFill(Color.web(MUTED_FG()));
+        ver.setPadding(new Insets(8, 16, 16, 16));
+
+        sidebar.getChildren().addAll(spacer, themeSection, logoutSection, ver);
         return sidebar;
     }
 
@@ -156,7 +253,8 @@ public class DonorController {
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
         else
             btn.setStyle(
-                    "-fx-background-color: transparent; -fx-text-fill: #1a1a1a; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
+                    "-fx-background-color: transparent; -fx-text-fill: " + TEXT()
+                            + "; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
     }
 
     private void refreshSidebar() {
@@ -184,19 +282,19 @@ public class DonorController {
     private ScrollPane wrapScroll(VBox page) {
         ScrollPane sp = new ScrollPane(page);
         sp.setFitToWidth(true);
-        sp.setStyle("-fx-background: " + BG + "; -fx-background-color: " + BG + ";");
+        sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
         return sp;
     }
 
     private VBox statCard(String label, String value, String detail, String detailColor) {
         VBox card = new VBox(4);
         card.setPadding(new Insets(16));
-        card.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         HBox.setHgrow(card, Priority.ALWAYS);
         Label l = new Label(label);
         l.setFont(Font.font("Segoe UI", 11));
-        l.setTextFill(Color.web(MUTED_FG));
+        l.setTextFill(Color.web(MUTED_FG()));
         Label v = new Label(value);
         v.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
         Label d = new Label(detail);
@@ -215,13 +313,13 @@ public class DonorController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("Track your impact and manage sponsorships");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
                 statCard("Sponsored Children", "3", "Active sponsorships", PRIMARY),
-                statCard("Total Donated", "$4,250", "Since Jan 2024", SECONDARY),
-                statCard("This Month", "$350", "+15% from last month", SECONDARY),
+                statCard("Total Donated", "৳456,000", "Since Jan 2024", SECONDARY),
+                statCard("This Month", "৳38,000", "+15% from last month", SECONDARY),
                 statCard("Impact Score", "92", "Excellent rating", SECONDARY));
 
         // Sponsored Children cards
@@ -229,14 +327,14 @@ public class DonorController {
         scTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         HBox childCards = new HBox(16);
         String[][] children = {
-                { "TR", "Tahmid Rahman", "10 years", "Dhaka, Bangladesh", "$450" },
-                { "MH", "Mugdho Hossain", "8 years", "Chittagong, Bangladesh", "$620" },
-                { "SA", "Sokina Akter", "12 years", "Sylhet, Bangladesh", "$380" },
+                { "TR", "Tahmid Rahman", "10 years", "Dhaka, Bangladesh", "৳48,000" },
+                { "MH", "Mugdho Hossain", "8 years", "Chittagong, Bangladesh", "৳66,000" },
+                { "SA", "Sokina Akter", "12 years", "Sylhet, Bangladesh", "৳40,000" },
         };
         for (String[] c : children) {
             VBox card = new VBox(12);
             card.setPadding(new Insets(20));
-            card.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+            card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                     + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;");
             HBox.setHgrow(card, Priority.ALWAYS);
 
@@ -252,12 +350,12 @@ public class DonorController {
             name.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
             Label age = new Label(c[2] + " \u2022 " + c[3]);
             age.setFont(Font.font("Segoe UI", 11));
-            age.setTextFill(Color.web(MUTED_FG));
+            age.setTextFill(Color.web(MUTED_FG()));
 
             HBox walletRow = new HBox();
             Label wl = new Label("Wallet Balance:");
             wl.setFont(Font.font("Segoe UI", 11));
-            wl.setTextFill(Color.web(MUTED_FG));
+            wl.setTextFill(Color.web(MUTED_FG()));
             Region sp2 = new Region();
             HBox.setHgrow(sp2, Priority.ALWAYS);
             Label wv = new Label(c[4]);
@@ -281,11 +379,11 @@ public class DonorController {
 
         // Recent Donations table
         VBox donTable = new VBox(0);
-        donTable.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        donTable.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         HBox donHdr = new HBox();
         donHdr.setPadding(new Insets(16));
-        donHdr.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+        donHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
         Label donTitle = new Label("Recent Donations");
         donTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         Region dsp = new Region();
@@ -307,7 +405,7 @@ public class DonorController {
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
             h.setPadding(new Insets(8, 16, 8, 16));
             h.setMaxWidth(Double.MAX_VALUE);
-            h.setStyle("-fx-background-color: " + MUTED + ";");
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
             grid.add(h, i, 0);
         }
         String[][] rows = {
@@ -325,7 +423,7 @@ public class DonorController {
                             + "; -fx-background-radius: 4; -fx-padding: 2 8;");
                     HBox w = new HBox(badge);
                     w.setPadding(new Insets(10, 16, 10, 16));
-                    w.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                    w.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                     grid.add(w, c, r + 1);
                     continue;
                 }
@@ -333,14 +431,14 @@ public class DonorController {
                 cell.setFont(Font.font("Segoe UI", 13));
                 if (c == 0) {
                     cell.setFont(Font.font("Segoe UI", 12));
-                    cell.setTextFill(Color.web(MUTED_FG));
+                    cell.setTextFill(Color.web(MUTED_FG()));
                 }
                 if (c == 2) {
                     cell.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
                     cell.setTextFill(Color.web(SECONDARY));
                 }
                 cell.setPadding(new Insets(10, 16, 10, 16));
-                cell.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                 grid.add(cell, c, r + 1);
             }
         }
@@ -359,7 +457,7 @@ public class DonorController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("Track donations and fund utilization");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         // Child selector
         VBox selBox = new VBox(8);
@@ -374,14 +472,14 @@ public class DonorController {
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
                 statCard("Current Balance", "$450", "Available funds", SECONDARY),
-                statCard("Total Received", "$2,850", "All time", MUTED_FG),
-                statCard("Total Spent", "$2,400", "All time", MUTED_FG),
-                statCard("Active Sponsor", "You", "Since Jan 2024", MUTED_FG));
+                statCard("Total Received", "$2,850", "All time", MUTED_FG()),
+                statCard("Total Spent", "$2,400", "All time", MUTED_FG()),
+                statCard("Active Sponsor", "You", "Since Jan 2024", MUTED_FG()));
 
         // Fund Utilization
         VBox fundCard = new VBox(16);
         fundCard.setPadding(new Insets(16));
-        fundCard.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        fundCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         Label fundTitle = new Label("Fund Utilization by Category");
         fundTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
@@ -407,7 +505,7 @@ public class DonorController {
             StackPane barBg = new StackPane();
             barBg.setPrefHeight(8);
             barBg.setMaxHeight(8);
-            barBg.setStyle("-fx-background-color: " + MUTED + "; -fx-background-radius: 4;");
+            barBg.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 4;");
             StackPane barFill = new StackPane();
             barFill.setPrefHeight(8);
             barFill.setMaxHeight(8);
@@ -437,23 +535,23 @@ public class DonorController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("View all your donations and transactions");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
                 statCard("Total Donated", "$4,250", "All time", SECONDARY),
                 statCard("This Month", "$350", "+15% from last month", SECONDARY),
-                statCard("Transactions", "28", "Total donations", MUTED_FG),
+                statCard("Transactions", "28", "Total donations", MUTED_FG()),
                 statCard("Children Helped", "3", "Active sponsorships", PRIMARY));
 
         // Transaction table
         VBox tableCard = new VBox(0);
-        tableCard.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        tableCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         HBox hdr = new HBox();
         hdr.setPadding(new Insets(16));
         hdr.setAlignment(Pos.CENTER_LEFT);
-        hdr.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+        hdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
         Label tl = new Label("All Transactions");
         tl.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         Region sp1 = new Region();
@@ -470,7 +568,7 @@ public class DonorController {
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
             h.setPadding(new Insets(8, 16, 8, 16));
             h.setMaxWidth(Double.MAX_VALUE);
-            h.setStyle("-fx-background-color: " + MUTED + ";");
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
             grid.add(h, i, 0);
         }
         String[][] rows = {
@@ -492,7 +590,7 @@ public class DonorController {
                             + "; -fx-background-radius: 4; -fx-padding: 2 8;");
                     HBox w = new HBox(badge);
                     w.setPadding(new Insets(10, 16, 10, 16));
-                    w.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                    w.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                     grid.add(w, c, r + 1);
                     continue;
                 }
@@ -500,14 +598,14 @@ public class DonorController {
                 cell.setFont(Font.font("Segoe UI", 13));
                 if (c == 0) {
                     cell.setFont(Font.font("Segoe UI", 12));
-                    cell.setTextFill(Color.web(MUTED_FG));
+                    cell.setTextFill(Color.web(MUTED_FG()));
                 }
                 if (c == 2) {
                     cell.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
                     cell.setTextFill(Color.web(SECONDARY));
                 }
                 cell.setPadding(new Insets(10, 16, 10, 16));
-                cell.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+                cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                 grid.add(cell, c, r + 1);
             }
         }
@@ -531,11 +629,11 @@ public class DonorController {
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         Label sub = new Label("View donation reports and impact analysis");
         sub.setFont(Font.font("Segoe UI", 13));
-        sub.setTextFill(Color.web(MUTED_FG));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
         VBox genCard = new VBox(16);
         genCard.setPadding(new Insets(16));
-        genCard.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
+        genCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         Label genTitle = new Label("Report Generator");
         genTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
@@ -567,17 +665,17 @@ public class DonorController {
         genBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
         Button pdfBtn = new Button("Export to PDF");
-        pdfBtn.setStyle("-fx-background-color: " + MUTED
+        pdfBtn.setStyle("-fx-background-color: " + MUTED()
                 + "; -fx-text-fill: #1a1a1a; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand; -fx-border-color: "
-                + BORDER + "; -fx-border-width: 1; -fx-border-radius: 4;");
+                + BORDER() + "; -fx-border-width: 1; -fx-border-radius: 4;");
         buttons.getChildren().addAll(genBtn, pdfBtn);
 
         genCard.getChildren().addAll(genTitle, row1, buttons);
 
         HBox qStats = new HBox(16);
         qStats.getChildren().addAll(
-                statCard("Reports Generated", "12", "All time", MUTED_FG),
-                statCard("Last Generated", "Jan 20", "Donation Summary", MUTED_FG),
+                statCard("Reports Generated", "12", "All time", MUTED_FG()),
+                statCard("Last Generated", "Jan 20", "Donation Summary", MUTED_FG()),
                 statCard("Tax Receipts", "3", "Available for download", PRIMARY),
                 statCard("Impact Score", "92", "Excellent", SECONDARY));
 
