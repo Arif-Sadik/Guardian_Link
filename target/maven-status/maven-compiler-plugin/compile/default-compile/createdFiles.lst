@@ -17,11 +17,13 @@ repository\ChildRepository.class
 controller\AuthController.class
 model\entity\Child.class
 service\MedicalRecordService.class
+util\ThemeManager.class
 controller\AdminController.class
 model\user\OrganizationAdmin.class
 repository\EducationRecordRepository.class
 controller\OrgAdminController.class
 model\user\UserRole.class
 util\PasswordUtil.class
+controller\AuthController$1.class
 model\user\User.class
 service\EducationRecordService.class

@@ -20,14 +20,18 @@ public class AuthService {
      * @throws IllegalArgumentException if credentials are invalid
      */
     public User login(String username, String password) throws UserNotApprovedException {
+        System.out.println("AuthService: finding user " + username);
         User user = userRepository.findByUsername(username);
 
         if (user == null) {
+            System.out.println("AuthService: user not found");
             throw new IllegalArgumentException("Invalid username or password.");
         }
 
         String hashedPassword = PasswordUtil.hash(password);
+        System.out.println("AuthService: comparing passwords");
         if (!user.getPassword().equals(hashedPassword)) {
+            System.out.println("AuthService: password mismatch");
             throw new IllegalArgumentException("Invalid username or password.");
         }
 

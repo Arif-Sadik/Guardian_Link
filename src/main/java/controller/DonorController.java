@@ -95,15 +95,10 @@ public class DonorController {
         header.setStyle(
                 "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
 
-        // Gradient circle logo
-        StackPane logo = new StackPane();
-        logo.setPrefSize(48, 48);
-        logo.setStyle(
-                "-fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2); -fx-background-radius: 24;");
-        Label gl = new Label("GL");
-        gl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
-        gl.setTextFill(Color.WHITE);
-        logo.getChildren().add(gl);
+        // GuarduanLink Shield Logo
+        Label logoIcon = new Label("\uD83D\uDEE1");
+        logoIcon.setFont(Font.font("Segoe UI Emoji", 28));
+        logoIcon.setTextFill(Color.web(PRIMARY));
 
         VBox titleBox = new VBox(0);
         titleBox.setPadding(new Insets(0, 0, 0, 14));
@@ -139,7 +134,7 @@ public class DonorController {
 
         userTypeBox.getChildren().addAll(userIcon, userInfo);
 
-        header.getChildren().addAll(logo, titleBox, spacer, userTypeBox);
+        header.getChildren().addAll(logoIcon, titleBox, spacer, userTypeBox);
         return header;
     }
 
@@ -367,11 +362,8 @@ public class DonorController {
             viewBtn.setMaxWidth(Double.MAX_VALUE);
             viewBtn.setStyle("-fx-background-color: " + PRIMARY
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 0; -fx-font-size: 12px; -fx-cursor: hand;");
-            viewBtn.setOnAction(e -> {
-                activePage = "sponsorship";
-                refreshSidebar();
-                root.setCenter(buildSponsorshipPage());
-            });
+            final String[] finalC = c;
+            viewBtn.setOnAction(e -> root.setCenter(buildChildDetailView(finalC)));
 
             card.getChildren().addAll(avatar, name, age, walletRow, viewBtn);
             childCards.getChildren().add(card);
@@ -521,6 +513,7 @@ public class DonorController {
         Button makeDon = new Button("\uD83D\uDCB2  Make a Donation");
         makeDon.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 14px; -fx-cursor: hand;");
+        makeDon.setOnAction(e -> root.setCenter(buildDonationForm(null)));
 
         page.getChildren().addAll(new VBox(4, title, sub), selBox, stats, fundCard, makeDon);
         return wrapScroll(page);
@@ -615,6 +608,7 @@ public class DonorController {
         Button makeDon = new Button("\uD83D\uDCB2  Make a New Donation");
         makeDon.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 14px; -fx-cursor: hand;");
+        makeDon.setOnAction(e -> root.setCenter(buildDonationForm(null)));
 
         page.getChildren().addAll(new VBox(4, title, sub), stats, tableCard, makeDon);
         return wrapScroll(page);
@@ -680,6 +674,111 @@ public class DonorController {
                 statCard("Impact Score", "92", "Excellent", SECONDARY));
 
         page.getChildren().addAll(new VBox(4, title, sub), genCard, qStats);
+        return wrapScroll(page);
+    }
+
+    private ScrollPane buildDonationForm(String childName) {
+        VBox page = new VBox(24);
+        page.setPadding(new Insets(32));
+        page.setMaxWidth(600);
+
+        Button backBtn = new Button("\u2190 Back to Sponsorship");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+
+        Label title = new Label(childName != null ? "Sponsor " + childName : "Make a Donation");
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+
+        VBox form = new VBox(20);
+        form.setPadding(new Insets(24));
+        form.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Label amtLabel = new Label("Donation Amount ($)");
+        amtLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        TextField amtField = new TextField();
+        amtField.setPromptText("e.g. 100");
+        amtField.setStyle("-fx-background-color: " + BG() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-radius: 4; -fx-padding: 10;");
+
+        Label msgLabel = new Label("Personal Message (Optional)");
+        msgLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        TextArea msgArea = new TextArea();
+        msgArea.setPromptText("Words of encouragement...");
+        msgArea.setPrefHeight(100);
+        msgArea.setStyle("-fx-background-color: " + BG() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-radius: 4; -fx-padding: 10;");
+
+        Button submit = new Button("Submit Donation");
+        submit.setMaxWidth(Double.MAX_VALUE);
+        submit.setStyle("-fx-background-color: " + SECONDARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 12; -fx-font-weight: bold; -fx-cursor: hand;");
+        submit.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+
+        form.getChildren().addAll(amtLabel, amtField, msgLabel, msgArea, submit);
+        page.getChildren().addAll(backBtn, title, form);
+        return wrapScroll(page);
+    }
+
+    private ScrollPane buildChildDetailView(String[] child) {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Dashboard");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildDashboardPage()));
+
+        Label title = new Label("Child Detail: " + child[1]);
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+
+        VBox card = new VBox(20);
+        card.setPadding(new Insets(24));
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        HBox hdr = new HBox(20);
+        hdr.setAlignment(Pos.CENTER_LEFT);
+        StackPane avatar = new StackPane(new Label(child[1].substring(0, 1)));
+        avatar.setPrefSize(64, 64);
+        avatar.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-background-radius: 32;");
+        Label avatarLabel = (Label) avatar.getChildren().get(0);
+        avatarLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+        avatarLabel.setTextFill(Color.web(PRIMARY));
+
+        VBox info = new VBox(4);
+        Label n = new Label(child[1]);
+        n.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        Label i = new Label("ID: " + child[0]);
+        i.setTextFill(Color.web(MUTED_FG()));
+        info.getChildren().addAll(n, i);
+        hdr.getChildren().addAll(avatar, info);
+
+        GridPane details = new GridPane();
+        details.setHgap(40);
+        details.setVgap(15);
+        String[][] data = {
+                { "Age", child[2] },
+                { "Gender", child[3] },
+                { "Location", "Dhaka Center" },
+                { "Health Status", "Excellent" },
+                { "Education", "Class 4" }
+        };
+        for (int r = 0; r < data.length; r++) {
+            Label l = new Label(data[r][0]);
+            l.setTextFill(Color.web(MUTED_FG()));
+            Label v = new Label(data[r][1]);
+            v.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+            details.add(l, 0, r);
+            details.add(v, 1, r);
+        }
+
+        Button donate = new Button("Make a Donation");
+        donate.setStyle("-fx-background-color: " + SECONDARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;");
+        donate.setOnAction(e -> root.setCenter(buildDonationForm(child[1])));
+
+        card.getChildren().addAll(hdr, new Separator(), details, donate);
+        page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);
     }
 }

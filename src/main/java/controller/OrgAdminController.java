@@ -103,15 +103,10 @@ public class OrgAdminController {
         header.setStyle(
                 "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
 
-        // Gradient circle logo
-        StackPane logo = new StackPane();
-        logo.setPrefSize(48, 48);
-        logo.setStyle(
-                "-fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2); -fx-background-radius: 24;");
-        Label gl = new Label("GL");
-        gl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
-        gl.setTextFill(Color.WHITE);
-        logo.getChildren().add(gl);
+        // GuardianLink Shield Logo
+        Label logoIcon = new Label("\uD83D\uDEE1");
+        logoIcon.setFont(Font.font("Segoe UI Emoji", 28));
+        logoIcon.setTextFill(Color.web(PRIMARY));
 
         VBox titleBox = new VBox(0);
         titleBox.setPadding(new Insets(0, 0, 0, 14));
@@ -147,7 +142,7 @@ public class OrgAdminController {
 
         userTypeBox.getChildren().addAll(userIcon, userInfo);
 
-        header.getChildren().addAll(logo, titleBox, spacer, userTypeBox);
+        header.getChildren().addAll(logoIcon, titleBox, spacer, userTypeBox);
         return header;
     }
 
@@ -531,13 +526,14 @@ public class OrgAdminController {
         page.setPadding(new Insets(24));
 
         // Back button
-        Button backBtn = new Button("Back to Dashboard");
-        backBtn.setStyle("-fx-background-color: " + MUTED() + "; -fx-text-fill: " + TEXT()
-                + "; -fx-background-radius: 4; -fx-padding: 8 16; -fx-cursor: hand;");
+        Button backBtn = new Button("\u2190 Back");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
         backBtn.setOnAction(e -> {
-            activePage = "dashboard";
-            refreshSidebar();
-            root.setCenter(buildDashboardPage());
+            // Refresh current active page view
+            switch (activePage) {
+                case "dashboard" -> root.setCenter(buildDashboardPage());
+                case "children" -> root.setCenter(buildChildrenPage());
+            }
         });
 
         Label title = new Label("Child Profile: " + child.getName());
@@ -1050,9 +1046,12 @@ public class OrgAdminController {
         Button recDon = new Button("\uD83D\uDCB2  Record Donation");
         recDon.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        recDon.setOnAction(e -> root.setCenter(buildRecordDonationPage()));
+
         Button recExp = new Button("\uD83D\uDCC9  Record Expense");
         recExp.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        recExp.setOnAction(e -> root.setCenter(buildRecordExpensePage()));
         actions.getChildren().addAll(recDon, recExp);
 
         page.getChildren().addAll(new VBox(4, title, sub), stats, fundCard, actions);
@@ -1118,6 +1117,9 @@ public class OrgAdminController {
             Button vd = new Button("View Details");
             vd.setStyle("-fx-background-color: " + PRIMARY
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-font-size: 12px; -fx-cursor: hand;");
+            final String[] alertData = a;
+            vd.setOnAction(e -> root.setCenter(buildAlertDetailView(alertData)));
+
             Button mr = new Button("Mark Resolved");
             mr.setStyle("-fx-background-color: " + SECONDARY
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-font-size: 12px; -fx-cursor: hand;");
@@ -1228,5 +1230,111 @@ public class OrgAdminController {
         v.setTextFill(Color.web(SECONDARY));
         box.getChildren().addAll(l, v);
         return box;
+    }
+
+    private ScrollPane buildAlertDetailView(String[] alert) {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Alerts");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildAlertsPage()));
+
+        Label title = new Label("Alert Detail: " + alert[1]);
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+
+        VBox card = new VBox(20);
+        card.setPadding(new Insets(24));
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Label type = new Label(alert[0].toUpperCase() + " ALERT");
+        type.setTextFill(Color.web(alert[0].equals("critical") ? DESTRUCTIVE : WARNING));
+        type.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+
+        Label desc = new Label(alert[4]);
+        desc.setFont(Font.font("Segoe UI", 16));
+        desc.setWrapText(true);
+
+        GridPane details = new GridPane();
+        details.setHgap(30);
+        details.setVgap(10);
+        details.add(new Label("Timestamp:"), 0, 0);
+        details.add(new Label(alert[3]), 1, 0);
+        details.add(new Label("Affected Child:"), 0, 1);
+        details.add(new Label(alert[2]), 1, 1);
+
+        Button resolve = new Button("Mark as Resolved");
+        resolve.setStyle("-fx-background-color: " + SECONDARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;");
+        resolve.setOnAction(e -> root.setCenter(buildAlertsPage()));
+
+        card.getChildren().addAll(type, title, desc, new Separator(), details, resolve);
+        page.getChildren().addAll(backBtn, card);
+        return wrapScroll(page);
+    }
+
+    private ScrollPane buildRecordDonationPage() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Sponsorship");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+
+        Label title = new Label("Record Donation");
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+
+        VBox card = new VBox(20);
+        card.setPadding(new Insets(24));
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Button save = new Button("Save Record");
+        save.setStyle("-fx-background-color: " + SECONDARY + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
+        save.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+
+        card.getChildren().addAll(
+                formField("Donor Name", ""),
+                formField("Amount (\u09F3)", ""),
+                formField("Purpose", "General Welfare"),
+                new Separator(),
+                save
+        );
+
+        page.getChildren().addAll(backBtn, title, card);
+        return wrapScroll(page);
+    }
+
+    private ScrollPane buildRecordExpensePage() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Sponsorship");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+
+        Label title = new Label("Record Expense");
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+
+        VBox card = new VBox(20);
+        card.setPadding(new Insets(24));
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Button save = new Button("Save Record");
+        save.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
+        save.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+
+        card.getChildren().addAll(
+                formField("Category", ""),
+                formField("Amount (\u09F3)", ""),
+                formFieldArea("Description", ""),
+                new Separator(),
+                save
+        );
+
+        page.getChildren().addAll(backBtn, title, card);
+        return wrapScroll(page);
     }
 }

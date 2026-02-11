@@ -32,6 +32,7 @@ public class AuthController {
     private static final String BG = "#f8f9fa";
     private static final String CARD = "#ffffff";
     private static final String RING = "#3b82f6";
+    private static final String MUTED_FG = util.ThemeManager.getMutedFg();
 
     public AuthController(Stage stage) {
         this.stage = stage;
@@ -42,7 +43,7 @@ public class AuthController {
         // ═══════════ LEFT PANEL — blue branding ═══════════
         VBox leftPanel = new VBox(0);
         leftPanel.setAlignment(Pos.CENTER);
-        leftPanel.setStyle("-fx-background-color: " + PRIMARY + ";");
+        leftPanel.setStyle("-fx-background-color: linear-gradient(to bottom right, #2563eb, #1e40af);");
         leftPanel.setPrefWidth(640);
 
         VBox leftContent = new VBox(16);
@@ -56,15 +57,21 @@ public class AuthController {
         shieldCircle.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-background-radius: 48;");
         Label shieldIcon = new Label("\uD83D\uDEE1");
         shieldIcon.setFont(Font.font("Segoe UI Emoji", 40));
+        shieldIcon.setTextFill(Color.WHITE);
         shieldCircle.getChildren().add(shieldIcon);
 
         Label brandTitle = new Label("GuardianLink");
-        brandTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 36));
-        brandTitle.setTextFill(Color.web(util.ThemeManager.getText()));
+        brandTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 36));
+        brandTitle.setTextFill(Color.WHITE);
+        javafx.scene.effect.DropShadow ds = new javafx.scene.effect.DropShadow();
+        ds.setOffsetY(2.0f);
+        ds.setColor(Color.color(0, 0, 0, 0.3));
+        brandTitle.setEffect(ds);
 
         Label brandSub = new Label("NGO Welfare Management System");
-        brandSub.setFont(Font.font("Segoe UI", 16));
-        brandSub.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
+        brandSub.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+        brandSub.setTextFill(Color.WHITE);
+        brandSub.setEffect(ds);
 
         leftContent.getChildren().addAll(shieldCircle, brandTitle, brandSub);
         leftPanel.getChildren().add(leftContent);
@@ -275,8 +282,8 @@ public class AuthController {
     private VBox buildBrandingPanel() {
         VBox leftPanel = new VBox(0);
         leftPanel.setAlignment(Pos.CENTER);
-        // Softer blue background
-        leftPanel.setStyle("-fx-background-color: #2563eb;");
+        // Modern gradient background
+        leftPanel.setStyle("-fx-background-color: linear-gradient(to bottom right, #2563eb, #1e40af);");
         leftPanel.setPrefWidth(640);
 
         VBox leftContent = new VBox(16);
@@ -291,18 +298,23 @@ public class AuthController {
         shieldCircle.setStyle("-fx-background-color: rgba(255,255,255,0.25); -fx-background-radius: 48;");
         Label shieldIcon = new Label("\uD83D\uDEE1");
         shieldIcon.setFont(Font.font("Segoe UI Emoji", 40));
-        shieldIcon.setTextFill(Color.web("#2563eb"));
+        shieldIcon.setTextFill(Color.WHITE);
         shieldCircle.getChildren().add(shieldIcon);
 
         Label brandTitle = new Label("GuardianLink");
-        brandTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 36));
+        brandTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 36));
         // White for strong contrast
         brandTitle.setTextFill(Color.WHITE);
+        javafx.scene.effect.DropShadow ds = new javafx.scene.effect.DropShadow();
+        ds.setOffsetY(2.0f);
+        ds.setColor(Color.color(0, 0, 0, 0.3));
+        brandTitle.setEffect(ds);
 
         Label brandSub = new Label("NGO Welfare Management System");
-        brandSub.setFont(Font.font("Segoe UI", 16));
+        brandSub.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
         // Softer, lighter subtitle
-        brandSub.setTextFill(Color.web("#e0e7ef"));
+        brandSub.setTextFill(Color.WHITE);
+        brandSub.setEffect(ds);
 
         leftContent.getChildren().addAll(shieldCircle, brandTitle, brandSub);
         leftPanel.getChildren().add(leftContent);
@@ -667,6 +679,7 @@ public class AuthController {
     }
 
     private void handleLogin(String username, String password, Label errorLabel) {
+        System.out.println("Login attempt for user: " + username);
         errorLabel.setText("");
 
         if (username == null || username.trim().isEmpty()) {
