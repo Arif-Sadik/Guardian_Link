@@ -27,12 +27,6 @@ public class AuthController {
 
     private static final String PRIMARY = "#2563eb";
     private static final String SECONDARY = "#22c55e";
-    // Remove static color constants, use ThemeManager
-    private static final String BORDER = "#e2e8f0";
-    private static final String BG = "#f8f9fa";
-    private static final String CARD = "#ffffff";
-    private static final String RING = "#3b82f6";
-    private static final String MUTED_FG = util.ThemeManager.getMutedFg();
 
     public AuthController(Stage stage) {
         this.stage = stage;
@@ -52,11 +46,11 @@ public class AuthController {
         leftContent.setPadding(new Insets(48));
 
         StackPane shieldCircle = new StackPane();
-        shieldCircle.setPrefSize(96, 96);
-        shieldCircle.setMaxSize(96, 96);
-        shieldCircle.setStyle("-fx-background-color: rgba(255,255,255,0.1); -fx-background-radius: 48;");
+        shieldCircle.setPrefSize(140, 140);
+        shieldCircle.setMaxSize(140, 140);
+        shieldCircle.setStyle("-fx-background-color: transparent;");
         Label shieldIcon = new Label("\uD83D\uDEE1");
-        shieldIcon.setFont(Font.font("Segoe UI Emoji", 40));
+        shieldIcon.setFont(Font.font("Segoe UI Emoji", 80));
         shieldIcon.setTextFill(Color.WHITE);
         shieldCircle.getChildren().add(shieldIcon);
 
@@ -80,8 +74,28 @@ public class AuthController {
         VBox rightPanel = new VBox(0);
         rightPanel.setAlignment(Pos.CENTER);
         rightPanel.setPrefWidth(640);
-        rightPanel.setStyle("-fx-background-color: " + CARD + ";");
+        rightPanel.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + ";");
         rightPanel.setPadding(new Insets(48));
+
+        // Theme toggle button
+        ToggleButton themeToggle = new ToggleButton(util.ThemeManager.isDarkMode() ? "\uD83C\uDF19" : "\u2600");
+        themeToggle.setSelected(util.ThemeManager.isDarkMode());
+        themeToggle.setTextFill(Color.web(util.ThemeManager.getText()));
+        themeToggle.setStyle(
+                "-fx-background-radius: 16; -fx-background-color: transparent; -fx-font-size: 18px; -fx-cursor: hand;");
+        themeToggle.setOnAction(e -> {
+            util.ThemeManager.toggleTheme();
+            themeToggle.setText(util.ThemeManager.isDarkMode() ? "\uD83C\uDF19" : "\u2600");
+            themeToggle.setTextFill(Color.web(util.ThemeManager.getText()));
+            show();
+        });
+        rightPanel.setAlignment(Pos.TOP_RIGHT);
+        HBox themeBox = new HBox();
+        themeBox.setAlignment(Pos.TOP_RIGHT);
+        themeBox.getChildren().add(themeToggle);
+        VBox.setMargin(themeBox, new Insets(0, 0, 24, 0));
+        rightPanel.getChildren().add(themeBox);
+        rightPanel.setAlignment(Pos.CENTER);
 
         VBox formBox = new VBox(0);
         formBox.setMaxWidth(400);
@@ -89,6 +103,7 @@ public class AuthController {
 
         Label welcomeTitle = new Label("Welcome Back");
         welcomeTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        welcomeTitle.setTextFill(Color.web(util.ThemeManager.getText()));
 
         Label welcomeSub = new Label("Enter your credentials to continue");
         welcomeSub.setFont(Font.font("Segoe UI", 14));
@@ -97,6 +112,7 @@ public class AuthController {
 
         Label userLabel = new Label("Username or Email");
         userLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        userLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField userField = new TextField();
         userField.setPromptText("Enter your username");
         styleInput(userField);
@@ -104,6 +120,7 @@ public class AuthController {
 
         Label passLabel = new Label("Password");
         passLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        passLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         PasswordField passField = new PasswordField();
         passField.setPromptText("Enter your password");
         styleInput(passField);
@@ -133,11 +150,11 @@ public class AuthController {
         orLabel.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
         orLabel.setPadding(new Insets(0, 12, 0, 12));
         Region leftLine = new Region();
-        leftLine.setStyle("-fx-background-color: " + BORDER + ";");
+        leftLine.setStyle("-fx-background-color: " + util.ThemeManager.getBorder() + ";");
         leftLine.setPrefHeight(1);
         HBox.setHgrow(leftLine, Priority.ALWAYS);
         Region rightLine = new Region();
-        rightLine.setStyle("-fx-background-color: " + BORDER + ";");
+        rightLine.setStyle("-fx-background-color: " + util.ThemeManager.getBorder() + ";");
         rightLine.setPrefHeight(1);
         HBox.setHgrow(rightLine, Priority.ALWAYS);
         divider.getChildren().addAll(leftLine, orLabel, rightLine);
@@ -148,13 +165,13 @@ public class AuthController {
         signUpBtn.setMaxWidth(Double.MAX_VALUE);
         signUpBtn.setStyle(String.format(
                 "-fx-background-color: transparent; -fx-text-fill: %s; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0; -fx-background-radius: 6; -fx-border-color: %s; -fx-border-width: 1; -fx-border-radius: 6; -fx-cursor: hand;",
-                PRIMARY, BORDER));
+                PRIMARY, util.ThemeManager.getBorder()));
         signUpBtn.setOnMouseEntered(e -> signUpBtn.setStyle(String.format(
                 "-fx-background-color: %s10; -fx-text-fill: %s; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0; -fx-background-radius: 6; -fx-border-color: %s; -fx-border-width: 1; -fx-border-radius: 6; -fx-cursor: hand;",
                 PRIMARY, PRIMARY, PRIMARY)));
         signUpBtn.setOnMouseExited(e -> signUpBtn.setStyle(String.format(
                 "-fx-background-color: transparent; -fx-text-fill: %s; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0; -fx-background-radius: 6; -fx-border-color: %s; -fx-border-width: 1; -fx-border-radius: 6; -fx-cursor: hand;",
-                PRIMARY, BORDER)));
+                PRIMARY, util.ThemeManager.getBorder())));
         signUpBtn.setOnAction(e -> showSignUpChoice());
 
         formBox.getChildren().addAll(
@@ -169,7 +186,7 @@ public class AuthController {
         HBox.setHgrow(rightPanel, Priority.ALWAYS);
 
         StackPane wrapper = new StackPane(root);
-        wrapper.setStyle("-fx-background-color: " + BG + ";");
+        wrapper.setStyle("-fx-background-color: " + util.ThemeManager.getBg() + ";");
 
         Scene scene = new Scene(wrapper, 1280, 800);
         stage.setScene(scene);
@@ -187,7 +204,7 @@ public class AuthController {
         VBox rightPanel = new VBox(0);
         rightPanel.setAlignment(Pos.CENTER);
         rightPanel.setPrefWidth(640);
-        rightPanel.setStyle("-fx-background-color: " + CARD + ";");
+        rightPanel.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + ";");
         rightPanel.setPadding(new Insets(48));
 
         VBox content = new VBox(0);
@@ -196,19 +213,22 @@ public class AuthController {
 
         Label title = new Label("Create an Account");
         title.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        title.setTextFill(Color.web(util.ThemeManager.getText()));
 
         Label subtitle = new Label("Choose your account type to get started");
         subtitle.setFont(Font.font("Segoe UI", 14));
-        subtitle.setTextFill(Color.web(MUTED_FG));
+        subtitle.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
         VBox.setMargin(subtitle, new Insets(4, 0, 32, 0));
 
         // Donor card
         VBox donorCard = new VBox(8);
         donorCard.setPadding(new Insets(24));
-        donorCard.setStyle("-fx-background-color: " + BG + "; -fx-background-radius: 8; -fx-border-color: " + BORDER
+        donorCard.setStyle("-fx-background-color: " + util.ThemeManager.getBg()
+                + "; -fx-background-radius: 8; -fx-border-color: " + util.ThemeManager.getBorder()
                 + "; -fx-border-radius: 8; -fx-cursor: hand;");
         Label donorTitle = new Label("Donor");
         donorTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
+        donorTitle.setTextFill(Color.web(util.ThemeManager.getText()));
         Label donorDesc = new Label(
                 "Support children through donations and sponsorships. Track your contributions and see the impact you make.");
         donorDesc.setFont(Font.font("Segoe UI", 13));
@@ -216,10 +236,12 @@ public class AuthController {
         donorDesc.setWrapText(true);
         donorCard.getChildren().addAll(donorTitle, donorDesc);
         donorCard.setOnMouseEntered(e -> donorCard
-                .setStyle("-fx-background-color: " + CARD + "; -fx-background-radius: 8; -fx-border-color: " + PRIMARY
+                .setStyle("-fx-background-color: " + util.ThemeManager.getCard()
+                        + "; -fx-background-radius: 8; -fx-border-color: " + PRIMARY
                         + "; -fx-border-radius: 8; -fx-border-width: 2; -fx-cursor: hand;"));
         donorCard.setOnMouseExited(e -> donorCard
-                .setStyle("-fx-background-color: " + BG + "; -fx-background-radius: 8; -fx-border-color: " + BORDER
+                .setStyle("-fx-background-color: " + util.ThemeManager.getBg()
+                        + "; -fx-background-radius: 8; -fx-border-color: " + util.ThemeManager.getBorder()
                         + "; -fx-border-radius: 8; -fx-cursor: hand;"));
         donorCard.setOnMouseClicked(e -> showDonorSignUp());
         VBox.setMargin(donorCard, new Insets(0, 0, 16, 0));
@@ -227,10 +249,12 @@ public class AuthController {
         // Caregiver card
         VBox caregiverCard = new VBox(8);
         caregiverCard.setPadding(new Insets(24));
-        caregiverCard.setStyle("-fx-background-color: " + BG + "; -fx-background-radius: 8; -fx-border-color: " + BORDER
+        caregiverCard.setStyle("-fx-background-color: " + util.ThemeManager.getBg()
+                + "; -fx-background-radius: 8; -fx-border-color: " + util.ThemeManager.getBorder()
                 + "; -fx-border-radius: 8; -fx-cursor: hand;");
         Label caregiverTitle = new Label("Caregiver");
         caregiverTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
+        caregiverTitle.setTextFill(Color.web(util.ThemeManager.getText()));
         Label caregiverDesc = new Label(
                 "Manage child profiles, track welfare, and coordinate care activities within your organization.");
         caregiverDesc.setFont(Font.font("Segoe UI", 13));
@@ -238,33 +262,68 @@ public class AuthController {
         caregiverDesc.setWrapText(true);
         caregiverCard.getChildren().addAll(caregiverTitle, caregiverDesc);
         caregiverCard.setOnMouseEntered(e -> caregiverCard
-                .setStyle("-fx-background-color: " + CARD + "; -fx-background-radius: 8; -fx-border-color: " + PRIMARY
+                .setStyle("-fx-background-color: " + util.ThemeManager.getCard()
+                        + "; -fx-background-radius: 8; -fx-border-color: " + PRIMARY
                         + "; -fx-border-radius: 8; -fx-border-width: 2; -fx-cursor: hand;"));
         caregiverCard.setOnMouseExited(e -> caregiverCard
-                .setStyle("-fx-background-color: " + BG + "; -fx-background-radius: 8; -fx-border-color: " + BORDER
+                .setStyle("-fx-background-color: " + util.ThemeManager.getBg()
+                        + "; -fx-background-radius: 8; -fx-border-color: " + util.ThemeManager.getBorder()
                         + "; -fx-border-radius: 8; -fx-cursor: hand;"));
         caregiverCard.setOnMouseClicked(e -> showCaregiverSignUp());
         VBox.setMargin(caregiverCard, new Insets(0, 0, 24, 0));
+
+        // Support card
+        VBox supportCard = new VBox(8);
+        supportCard.setPadding(new Insets(24));
+        supportCard.setStyle("-fx-background-color: " + util.ThemeManager.getBg()
+                + "; -fx-background-radius: 8; -fx-border-color: " + util.ThemeManager.getBorder()
+                + "; -fx-border-radius: 8; -fx-cursor: hand;");
+        Label supportTitle = new Label("Support");
+        supportTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
+        supportTitle.setTextFill(Color.web(util.ThemeManager.getText()));
+        Label supportDesc = new Label(
+                "Help users resolve concerns and problems. Provide assistance and ensure smooth platform experience.");
+        supportDesc.setFont(Font.font("Segoe UI", 13));
+        supportDesc.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
+        supportDesc.setWrapText(true);
+        supportCard.getChildren().addAll(supportTitle, supportDesc);
+        supportCard.setOnMouseEntered(e -> supportCard
+                .setStyle("-fx-background-color: " + util.ThemeManager.getCard()
+                        + "; -fx-background-radius: 8; -fx-border-color: " + PRIMARY
+                        + "; -fx-border-radius: 8; -fx-border-width: 2; -fx-cursor: hand;"));
+        supportCard.setOnMouseExited(e -> supportCard
+                .setStyle("-fx-background-color: " + util.ThemeManager.getBg()
+                        + "; -fx-background-radius: 8; -fx-border-color: " + util.ThemeManager.getBorder()
+                        + "; -fx-border-radius: 8; -fx-cursor: hand;"));
+        supportCard.setOnMouseClicked(e -> showSupportSignUp());
+        VBox.setMargin(supportCard, new Insets(0, 0, 24, 0));
 
         // Back to login link
         Hyperlink backLink = new Hyperlink("Already have an account? Sign in");
         backLink.setFont(Font.font("Segoe UI", 13));
         backLink.setTextFill(Color.web(util.ThemeManager.PRIMARY));
+        backLink.setOnAction(e -> show());
+
         // Theme toggle button
-        ToggleButton themeToggle = new ToggleButton(util.ThemeManager.isDarkMode() ? "🌙" : "☀️");
+        ToggleButton themeToggle = new ToggleButton(util.ThemeManager.isDarkMode() ? "\uD83C\uDF19" : "\u2600");
         themeToggle.setSelected(util.ThemeManager.isDarkMode());
+        themeToggle.setTextFill(Color.web(util.ThemeManager.getText()));
         themeToggle.setStyle(
                 "-fx-background-radius: 16; -fx-background-color: transparent; -fx-font-size: 18px; -fx-cursor: hand;");
         themeToggle.setOnAction(e -> {
             util.ThemeManager.toggleTheme();
-            themeToggle.setText(util.ThemeManager.isDarkMode() ? "🌙" : "☀️");
-            show();
+            themeToggle.setText(util.ThemeManager.isDarkMode() ? "\uD83C\uDF19" : "\u2600");
+            themeToggle.setTextFill(Color.web(util.ThemeManager.getText()));
+            showSignUpChoice();
         });
-        VBox.setMargin(themeToggle, new Insets(0, 0, 24, 0));
-        rightPanel.getChildren().add(0, themeToggle);
-        backLink.setOnAction(e -> show());
 
-        content.getChildren().addAll(title, subtitle, donorCard, caregiverCard, backLink);
+        HBox themeBox = new HBox();
+        themeBox.setAlignment(Pos.TOP_RIGHT);
+        themeBox.getChildren().add(themeToggle);
+        VBox.setMargin(themeBox, new Insets(0, 0, 24, 0));
+        rightPanel.getChildren().add(0, themeBox);
+
+        content.getChildren().addAll(title, subtitle, donorCard, caregiverCard, supportCard, backLink);
         rightPanel.getChildren().add(content);
 
         HBox root = new HBox(leftPanel, rightPanel);
@@ -272,7 +331,7 @@ public class AuthController {
         HBox.setHgrow(rightPanel, Priority.ALWAYS);
 
         StackPane wrapper = new StackPane(root);
-        wrapper.setStyle("-fx-background-color: " + BG + ";");
+        wrapper.setStyle("-fx-background-color: " + util.ThemeManager.getBg() + ";");
 
         Scene scene = new Scene(wrapper, 1280, 800);
         stage.setScene(scene);
@@ -289,15 +348,15 @@ public class AuthController {
         VBox leftContent = new VBox(16);
         leftContent.setAlignment(Pos.CENTER);
         leftContent.setMaxWidth(400);
-        leftContent.setPadding(new Insets(48));
+        leftContent.setPadding(new Insets(120, 48, 48, 48));
 
         StackPane shieldCircle = new StackPane();
-        shieldCircle.setPrefSize(96, 96);
-        shieldCircle.setMaxSize(96, 96);
-        // Lighter, semi-transparent white circle
-        shieldCircle.setStyle("-fx-background-color: rgba(255,255,255,0.25); -fx-background-radius: 48;");
+        shieldCircle.setPrefSize(140, 140);
+        shieldCircle.setMaxSize(140, 140);
+        // Transparent background - no circle
+        shieldCircle.setStyle("-fx-background-color: transparent;");
         Label shieldIcon = new Label("\uD83D\uDEE1");
-        shieldIcon.setFont(Font.font("Segoe UI Emoji", 40));
+        shieldIcon.setFont(Font.font("Segoe UI Emoji", 80));
         shieldIcon.setTextFill(Color.WHITE);
         shieldCircle.getChildren().add(shieldIcon);
 
@@ -325,15 +384,17 @@ public class AuthController {
         VBox card = new VBox(8);
         card.setPadding(new Insets(20));
         card.setPrefWidth(250);
-        card.setStyle("-fx-background-color: " + BG + "; -fx-background-radius: 8; -fx-border-color: " + BORDER
+        card.setStyle("-fx-background-color: " + util.ThemeManager.getBg()
+                + "; -fx-background-radius: 8; -fx-border-color: " + util.ThemeManager.getBorder()
                 + "; -fx-border-radius: 8;");
 
         Label titleLabel = new Label(title);
         titleLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 16));
+        titleLabel.setTextFill(Color.web(util.ThemeManager.getText()));
 
         Label descLabel = new Label(description);
         descLabel.setFont(Font.font("Segoe UI", 12));
-        descLabel.setTextFill(Color.web(MUTED_FG));
+        descLabel.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
         descLabel.setWrapText(true);
 
         card.getChildren().addAll(titleLabel, descLabel);
@@ -346,7 +407,7 @@ public class AuthController {
         VBox rightPanel = new VBox(0);
         rightPanel.setAlignment(Pos.CENTER);
         rightPanel.setPrefWidth(640);
-        rightPanel.setStyle("-fx-background-color: " + CARD + ";");
+        rightPanel.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + ";");
         rightPanel.setPadding(new Insets(48));
 
         VBox formBox = new VBox(0);
@@ -355,14 +416,16 @@ public class AuthController {
 
         Label title = new Label("Donor Registration");
         title.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        title.setTextFill(Color.web(util.ThemeManager.getText()));
 
         Label subtitle = new Label("Create your donor account");
         subtitle.setFont(Font.font("Segoe UI", 14));
-        subtitle.setTextFill(Color.web(MUTED_FG));
+        subtitle.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
         VBox.setMargin(subtitle, new Insets(4, 0, 24, 0));
 
         Label userLabel = new Label("Username");
         userLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        userLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField usernameField = new TextField();
         usernameField.setPromptText("Enter username");
         styleInput(usernameField);
@@ -370,6 +433,7 @@ public class AuthController {
 
         Label passLabel = new Label("Password");
         passLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        passLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         PasswordField passwordField = new PasswordField();
         passwordField.setPromptText("Enter password");
         styleInput(passwordField);
@@ -377,6 +441,7 @@ public class AuthController {
 
         Label confirmLabel = new Label("Confirm Password");
         confirmLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        confirmLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         PasswordField confirmField = new PasswordField();
         confirmField.setPromptText("Confirm password");
         styleInput(confirmField);
@@ -384,6 +449,7 @@ public class AuthController {
 
         Label emailLabel = new Label("Email Address");
         emailLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        emailLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField emailField = new TextField();
         emailField.setPromptText("Enter email");
         styleInput(emailField);
@@ -391,6 +457,7 @@ public class AuthController {
 
         Label phoneLabel = new Label("Phone Number");
         phoneLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        phoneLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField phoneField = new TextField();
         phoneField.setPromptText("Enter phone number");
         styleInput(phoneField);
@@ -398,12 +465,52 @@ public class AuthController {
 
         Label paymentLabel = new Label("Preferred Payment Method");
         paymentLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        paymentLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         ComboBox<String> paymentCombo = new ComboBox<>();
         paymentCombo.getItems().addAll("Credit Card", "Debit Card", "Bank Transfer", "PayPal", "Mobile Payment");
         paymentCombo.setPromptText("Select Payment Method");
         paymentCombo.setMaxWidth(Double.MAX_VALUE);
-        paymentCombo.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
-                + "; -fx-border-radius: 4; -fx-background-radius: 4;");
+        paymentCombo.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + "; -fx-border-color: "
+                + util.ThemeManager.getBorder()
+                + "; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + util.ThemeManager.getText()
+                + "; -fx-prompt-text-fill: " + util.ThemeManager.getMutedFg() + ";");
+        paymentCombo.setButtonCell(new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(paymentCombo.getPromptText());
+                    setTextFill(Color.web(util.ThemeManager.getMutedFg()));
+                } else {
+                    setText(item);
+                    setTextFill(Color.web(util.ThemeManager.getText()));
+                }
+                setStyle("-fx-background-color: transparent;");
+            }
+        });
+        paymentCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setTextFill(Color.web(util.ThemeManager.getText()));
+                }
+                setStyle("-fx-background-color: " + util.ThemeManager.getCard() + "; -fx-padding: 8px;");
+            }
+        });
+        paymentCombo.lookup(".list-view");
+        paymentCombo.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            if (newSkin != null) {
+                javafx.scene.Node popupContent = paymentCombo.lookup(".list-view");
+                if (popupContent != null) {
+                    popupContent.setStyle("-fx-background-color: " + util.ThemeManager.getCard()
+                            + "; -fx-border-color: " + util.ThemeManager.getBorder() + ";");
+                }
+            }
+        });
         VBox.setMargin(paymentCombo, new Insets(6, 0, 20, 0));
 
         Label errorLabel = new Label();
@@ -460,14 +567,21 @@ public class AuthController {
                 phoneLabel, phoneField,
                 paymentLabel, paymentCombo,
                 errorLabel, registerBtn, backLink);
-        rightPanel.getChildren().add(formBox);
+
+        javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(formBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: " + util.ThemeManager.getCard() + "; -fx-background-color: "
+                + util.ThemeManager.getCard() + ";");
+        scrollPane.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        rightPanel.getChildren().add(scrollPane);
 
         HBox root = new HBox(leftPanel, rightPanel);
         HBox.setHgrow(leftPanel, Priority.ALWAYS);
         HBox.setHgrow(rightPanel, Priority.ALWAYS);
 
         StackPane wrapper = new StackPane(root);
-        wrapper.setStyle("-fx-background-color: " + BG + ";");
+        wrapper.setStyle("-fx-background-color: " + util.ThemeManager.getBg() + ";");
 
         Scene scene = new Scene(wrapper, 1280, 800);
         stage.setScene(scene);
@@ -480,7 +594,7 @@ public class AuthController {
         VBox rightPanel = new VBox(0);
         rightPanel.setAlignment(Pos.CENTER);
         rightPanel.setPrefWidth(640);
-        rightPanel.setStyle("-fx-background-color: " + CARD + ";");
+        rightPanel.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + ";");
         rightPanel.setPadding(new Insets(48));
 
         VBox formBox = new VBox(0);
@@ -489,14 +603,16 @@ public class AuthController {
 
         Label title = new Label("Caregiver Registration");
         title.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        title.setTextFill(Color.web(util.ThemeManager.getText()));
 
         Label subtitle = new Label("Create your caregiver account");
         subtitle.setFont(Font.font("Segoe UI", 14));
-        subtitle.setTextFill(Color.web(MUTED_FG));
+        subtitle.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
         VBox.setMargin(subtitle, new Insets(4, 0, 24, 0));
 
         Label userLabel = new Label("Username");
         userLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        userLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField usernameField = new TextField();
         usernameField.setPromptText("Enter username");
         styleInput(usernameField);
@@ -504,6 +620,7 @@ public class AuthController {
 
         Label passLabel = new Label("Password");
         passLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        passLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         PasswordField passwordField = new PasswordField();
         passwordField.setPromptText("Enter password");
         styleInput(passwordField);
@@ -511,6 +628,7 @@ public class AuthController {
 
         Label confirmLabel = new Label("Confirm Password");
         confirmLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        confirmLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         PasswordField confirmField = new PasswordField();
         confirmField.setPromptText("Confirm password");
         styleInput(confirmField);
@@ -518,6 +636,7 @@ public class AuthController {
 
         Label emailLabel = new Label("Email Address");
         emailLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        emailLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField emailField = new TextField();
         emailField.setPromptText("Enter email");
         styleInput(emailField);
@@ -525,6 +644,7 @@ public class AuthController {
 
         Label phoneLabel = new Label("Phone Number");
         phoneLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        phoneLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField phoneField = new TextField();
         phoneField.setPromptText("Enter phone number");
         styleInput(phoneField);
@@ -532,6 +652,7 @@ public class AuthController {
 
         Label orgLabel = new Label("Organization Name");
         orgLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        orgLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         TextField orgField = new TextField();
         orgField.setPromptText("Enter organization name");
         styleInput(orgField);
@@ -539,14 +660,54 @@ public class AuthController {
 
         Label expertiseLabel = new Label("Work Expertise");
         expertiseLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        expertiseLabel.setTextFill(Color.web(util.ThemeManager.getText()));
         ComboBox<String> expertiseCombo = new ComboBox<>();
         expertiseCombo.getItems().addAll(
                 "Child Psychology", "Social Work", "Healthcare", "Education",
                 "Nutrition", "Counseling", "Administration", "Other");
         expertiseCombo.setPromptText("Select Work Expertise");
         expertiseCombo.setMaxWidth(Double.MAX_VALUE);
-        expertiseCombo.setStyle("-fx-background-color: " + CARD + "; -fx-border-color: " + BORDER
-                + "; -fx-border-radius: 4; -fx-background-radius: 4;");
+        expertiseCombo.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + "; -fx-border-color: "
+                + util.ThemeManager.getBorder()
+                + "; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + util.ThemeManager.getText()
+                + "; -fx-prompt-text-fill: " + util.ThemeManager.getMutedFg() + ";");
+        expertiseCombo.setButtonCell(new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(expertiseCombo.getPromptText());
+                    setTextFill(Color.web(util.ThemeManager.getMutedFg()));
+                } else {
+                    setText(item);
+                    setTextFill(Color.web(util.ThemeManager.getText()));
+                }
+                setStyle("-fx-background-color: transparent;");
+            }
+        });
+        expertiseCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setTextFill(Color.web(util.ThemeManager.getText()));
+                }
+                setStyle("-fx-background-color: " + util.ThemeManager.getCard() + "; -fx-padding: 8px;");
+            }
+        });
+        expertiseCombo.lookup(".list-view");
+        expertiseCombo.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            if (newSkin != null) {
+                javafx.scene.Node popupContent = expertiseCombo.lookup(".list-view");
+                if (popupContent != null) {
+                    popupContent.setStyle("-fx-background-color: " + util.ThemeManager.getCard()
+                            + "; -fx-border-color: " + util.ThemeManager.getBorder() + ";");
+                }
+            }
+        });
         VBox.setMargin(expertiseCombo, new Insets(6, 0, 20, 0));
 
         Label errorLabel = new Label();
@@ -580,7 +741,7 @@ public class AuthController {
                 return;
             }
 
-            OrganizationAdmin caregiver = new OrganizationAdmin(username, PasswordUtil.hash(password));
+            Caregiver caregiver = new Caregiver(username, PasswordUtil.hash(password));
             caregiver.setApproved(true); // Auto-approve for easy login
             if (userService.createUser(caregiver)) {
                 showSuccessPage("Caregiver");
@@ -604,18 +765,214 @@ public class AuthController {
                 orgLabel, orgField,
                 expertiseLabel, expertiseCombo,
                 errorLabel, registerBtn, backLink);
-        rightPanel.getChildren().add(formBox);
+
+        javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(formBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: " + util.ThemeManager.getCard() + "; -fx-background-color: "
+                + util.ThemeManager.getCard() + ";");
+        scrollPane.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        rightPanel.getChildren().add(scrollPane);
 
         HBox root = new HBox(leftPanel, rightPanel);
         HBox.setHgrow(leftPanel, Priority.ALWAYS);
         HBox.setHgrow(rightPanel, Priority.ALWAYS);
 
         StackPane wrapper = new StackPane(root);
-        wrapper.setStyle("-fx-background-color: " + BG + ";");
+        wrapper.setStyle("-fx-background-color: " + util.ThemeManager.getBg() + ";");
 
         Scene scene = new Scene(wrapper, 1280, 800);
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 Caregiver Registration");
+    }
+
+    private void showSupportSignUp() {
+        VBox leftPanel = buildBrandingPanel();
+
+        VBox rightPanel = new VBox(0);
+        rightPanel.setAlignment(Pos.CENTER);
+        rightPanel.setPrefWidth(640);
+        rightPanel.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + ";");
+        rightPanel.setPadding(new Insets(48));
+
+        VBox formBox = new VBox(0);
+        formBox.setMaxWidth(400);
+        formBox.setAlignment(Pos.CENTER_LEFT);
+
+        Label title = new Label("Support Registration");
+        title.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        title.setTextFill(Color.web(util.ThemeManager.getText()));
+
+        Label subtitle = new Label("Create your support staff account");
+        subtitle.setFont(Font.font("Segoe UI", 14));
+        subtitle.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
+        VBox.setMargin(subtitle, new Insets(4, 0, 24, 0));
+
+        Label userLabel = new Label("Username");
+        userLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        userLabel.setTextFill(Color.web(util.ThemeManager.getText()));
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Enter username");
+        styleInput(usernameField);
+        VBox.setMargin(usernameField, new Insets(6, 0, 16, 0));
+
+        Label passLabel = new Label("Password");
+        passLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        passLabel.setTextFill(Color.web(util.ThemeManager.getText()));
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("Enter password");
+        styleInput(passwordField);
+        VBox.setMargin(passwordField, new Insets(6, 0, 16, 0));
+
+        Label confirmLabel = new Label("Confirm Password");
+        confirmLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        confirmLabel.setTextFill(Color.web(util.ThemeManager.getText()));
+        PasswordField confirmField = new PasswordField();
+        confirmField.setPromptText("Confirm password");
+        styleInput(confirmField);
+        VBox.setMargin(confirmField, new Insets(6, 0, 16, 0));
+
+        Label emailLabel = new Label("Email Address");
+        emailLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        emailLabel.setTextFill(Color.web(util.ThemeManager.getText()));
+        TextField emailField = new TextField();
+        emailField.setPromptText("Enter email");
+        styleInput(emailField);
+        VBox.setMargin(emailField, new Insets(6, 0, 16, 0));
+
+        Label phoneLabel = new Label("Phone Number");
+        phoneLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        phoneLabel.setTextFill(Color.web(util.ThemeManager.getText()));
+        TextField phoneField = new TextField();
+        phoneField.setPromptText("Enter phone number");
+        styleInput(phoneField);
+        VBox.setMargin(phoneField, new Insets(6, 0, 16, 0));
+
+        Label specializationLabel = new Label("Support Specialization");
+        specializationLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        specializationLabel.setTextFill(Color.web(util.ThemeManager.getText()));
+        ComboBox<String> specializationCombo = new ComboBox<>();
+        specializationCombo.getItems().addAll(
+                "Technical Support", "User Assistance", "Account Issues",
+                "Billing Support", "General Inquiries", "Escalation Handling", "Other");
+        specializationCombo.setPromptText("Select Specialization");
+        specializationCombo.setMaxWidth(Double.MAX_VALUE);
+        specializationCombo.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + "; -fx-border-color: "
+                + util.ThemeManager.getBorder()
+                + "; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + util.ThemeManager.getText()
+                + "; -fx-prompt-text-fill: " + util.ThemeManager.getMutedFg() + ";");
+        specializationCombo.setButtonCell(new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(specializationCombo.getPromptText());
+                    setTextFill(Color.web(util.ThemeManager.getMutedFg()));
+                } else {
+                    setText(item);
+                    setTextFill(Color.web(util.ThemeManager.getText()));
+                }
+                setStyle("-fx-background-color: transparent;");
+            }
+        });
+        specializationCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setTextFill(Color.web(util.ThemeManager.getText()));
+                }
+                setStyle("-fx-background-color: " + util.ThemeManager.getCard() + "; -fx-padding: 8px;");
+            }
+        });
+        specializationCombo.lookup(".list-view");
+        specializationCombo.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            if (newSkin != null) {
+                javafx.scene.Node popupContent = specializationCombo.lookup(".list-view");
+                if (popupContent != null) {
+                    popupContent.setStyle("-fx-background-color: " + util.ThemeManager.getCard()
+                            + "; -fx-border-color: " + util.ThemeManager.getBorder() + ";");
+                }
+            }
+        });
+        VBox.setMargin(specializationCombo, new Insets(6, 0, 20, 0));
+
+        Label errorLabel = new Label();
+        errorLabel.setTextFill(Color.web("#dc2626"));
+        errorLabel.setFont(Font.font("Segoe UI", 13));
+        errorLabel.setWrapText(true);
+
+        Button registerBtn = new Button("Create Account");
+        registerBtn.setMaxWidth(Double.MAX_VALUE);
+        registerBtn.setStyle(String.format(
+                "-fx-background-color: %s; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0; -fx-background-radius: 6; -fx-cursor: hand;",
+                PRIMARY));
+        registerBtn.setOnMouseEntered(e -> registerBtn.setStyle(registerBtn.getStyle().replace(PRIMARY, "#1d4ed8")));
+        registerBtn.setOnMouseExited(e -> registerBtn.setStyle(registerBtn.getStyle().replace("#1d4ed8", PRIMARY)));
+        registerBtn.setOnAction(e -> {
+            errorLabel.setText("");
+            String username = usernameField.getText().trim();
+            String password = passwordField.getText();
+            String confirm = confirmField.getText();
+
+            if (username.isEmpty() || password.isEmpty()) {
+                errorLabel.setText("Username and password are required.");
+                return;
+            }
+            if (!password.equals(confirm)) {
+                errorLabel.setText("Passwords do not match.");
+                return;
+            }
+            if (specializationCombo.getValue() == null) {
+                errorLabel.setText("Please select your support specialization.");
+                return;
+            }
+
+            Support support = new Support(username, PasswordUtil.hash(password));
+            support.setApproved(true); // Auto-approve for easy login
+            if (userService.createUser(support)) {
+                showSuccessPage("Support");
+            } else {
+                errorLabel.setText("Username already exists. Please choose a different one.");
+            }
+        });
+        VBox.setMargin(registerBtn, new Insets(8, 0, 16, 0));
+
+        Hyperlink backLink = new Hyperlink("Back to account type selection");
+        backLink.setFont(Font.font("Segoe UI", 13));
+        backLink.setTextFill(Color.web(PRIMARY));
+        backLink.setOnAction(e -> showSignUpChoice());
+
+        formBox.getChildren().addAll(title, subtitle,
+                userLabel, usernameField,
+                passLabel, passwordField,
+                confirmLabel, confirmField,
+                emailLabel, emailField,
+                phoneLabel, phoneField,
+                specializationLabel, specializationCombo,
+                errorLabel, registerBtn, backLink);
+
+        javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(formBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: " + util.ThemeManager.getCard() + "; -fx-background-color: "
+                + util.ThemeManager.getCard() + ";");
+        scrollPane.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        rightPanel.getChildren().add(scrollPane);
+
+        HBox root = new HBox(leftPanel, rightPanel);
+        HBox.setHgrow(leftPanel, Priority.ALWAYS);
+        HBox.setHgrow(rightPanel, Priority.ALWAYS);
+
+        StackPane wrapper = new StackPane(root);
+        wrapper.setStyle("-fx-background-color: " + util.ThemeManager.getBg() + ";");
+
+        Scene scene = new Scene(wrapper, 1280, 800);
+        stage.setScene(scene);
+        stage.setTitle("GuardianLink \u2014 Support Registration");
     }
 
     private void showSuccessPage(String accountType) {
@@ -624,7 +981,7 @@ public class AuthController {
         VBox rightPanel = new VBox(24);
         rightPanel.setAlignment(Pos.CENTER);
         rightPanel.setPrefWidth(640);
-        rightPanel.setStyle("-fx-background-color: " + CARD + ";");
+        rightPanel.setStyle("-fx-background-color: " + util.ThemeManager.getCard() + ";");
         rightPanel.setPadding(new Insets(48));
 
         VBox content = new VBox(16);
@@ -637,12 +994,13 @@ public class AuthController {
 
         Label title = new Label("Registration Successful!");
         title.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        title.setTextFill(Color.web(util.ThemeManager.getText()));
 
         Label message = new Label(
                 "Your " + accountType
                         + " account has been created successfully. You can now sign in with your credentials.");
         message.setFont(Font.font("Segoe UI", 14));
-        message.setTextFill(Color.web(MUTED_FG));
+        message.setTextFill(Color.web(util.ThemeManager.getMutedFg()));
         message.setWrapText(true);
         message.setAlignment(Pos.CENTER);
 
@@ -663,7 +1021,7 @@ public class AuthController {
         HBox.setHgrow(rightPanel, Priority.ALWAYS);
 
         StackPane wrapper = new StackPane(root);
-        wrapper.setStyle("-fx-background-color: " + BG + ";");
+        wrapper.setStyle("-fx-background-color: " + util.ThemeManager.getBg() + ";");
 
         Scene scene = new Scene(wrapper, 1280, 800);
         stage.setScene(scene);
@@ -699,6 +1057,8 @@ public class AuthController {
                 case SYSTEM_ADMIN -> new AdminController(stage, user).show();
                 case ORGANIZATION_ADMIN -> new OrgAdminController(stage, user).show();
                 case DONOR -> new DonorController(stage, user).show();
+                case CAREGIVER -> new OrgAdminController(stage, user).show();
+                case SUPPORT -> new AdminController(stage, user).show();
                 default -> errorLabel.setText("Unknown user role.");
             }
         } catch (UserNotApprovedException e) {
@@ -710,11 +1070,12 @@ public class AuthController {
 
     private void styleInput(TextField field) {
         String normal = String.format(
-                "-fx-background-color: %s; -fx-border-color: %s; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-font-size: 14px;",
-                CARD, BORDER);
+                "-fx-background-color: %s; -fx-border-color: %s; -fx-text-fill: %s; -fx-prompt-text-fill: %s; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-font-size: 14px;",
+                util.ThemeManager.getCard(), util.ThemeManager.getBorder(), util.ThemeManager.getText(),
+                util.ThemeManager.getMutedFg());
         String focused = String.format(
-                "-fx-background-color: %s; -fx-border-color: %s; -fx-border-width: 2; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-font-size: 14px;",
-                CARD, RING);
+                "-fx-background-color: %s; -fx-border-color: %s; -fx-text-fill: %s; -fx-prompt-text-fill: %s; -fx-border-width: 2; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-font-size: 14px;",
+                util.ThemeManager.getCard(), "#3b82f6", util.ThemeManager.getText(), util.ThemeManager.getMutedFg());
         field.setStyle(normal);
         field.focusedProperty().addListener((obs, o, n) -> field.setStyle(n ? focused : normal));
     }

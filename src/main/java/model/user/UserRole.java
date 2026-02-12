@@ -6,5 +6,7 @@ package model.user;
 public enum UserRole {
     SYSTEM_ADMIN,
     ORGANIZATION_ADMIN,
-    DONOR
+    DONOR,
+    CAREGIVER,
+    SUPPORT
 }

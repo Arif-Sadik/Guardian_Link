@@ -11,7 +11,16 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import model.user.User;
+import model.user.UserRole;
+import model.user.SystemAdmin;
+import model.user.OrganizationAdmin;
+import model.user.Donor;
+import model.user.Caregiver;
+import model.user.Support;
+import service.UserService;
+import service.RolePermissionsService;
 import util.ThemeManager;
+import util.PasswordUtil;
 
 /**
  * System Administrator dashboard — Figma-matched.
@@ -21,28 +30,11 @@ public class AdminController {
 
     private final Stage stage;
     private final User user;
+    private final UserService userService = new UserService();
+    private final RolePermissionsService rolePermissionsService = new RolePermissionsService();
     private BorderPane root;
     private VBox sidebar;
     private String activePage = "dashboard";
-    private java.util.List<String[]> currentUsers = new java.util.ArrayList<>(java.util.Arrays.asList(
-            new String[] { "USR-001", "Sarah Williams", "sarah@example.com", "Child", "Active", "Jan 25, 2026" },
-            new String[] { "USR-002", "Dr. Michael Chen", "mchen@guardianlink.org", "Caregiver", "Active",
-                    "Jan 26, 2026" },
-            new String[] { "USR-003", "Emily Johnson", "ejohnson@email.com", "Donor", "Active", "Jan 26, 2026" },
-            new String[] { "USR-004", "James Rodriguez", "jrodriguez@guardianlink.org", "Support", "Active",
-                    "Jan 26, 2026" },
-            new String[] { "USR-005", "Admin User", "admin@guardianlink.org", "Admin", "Active", "Jan 26, 2026" },
-            new String[] { "USR-006", "John Smith", "jsmith@email.com", "Donor", "Pending", "Never" },
-            new String[] { "USR-007", "Maria Garcia", "mgarcia@guardianlink.org", "Caregiver", "Pending", "Never" }));
-
-    private java.util.List<String[]> roleData = new java.util.ArrayList<>(java.util.Arrays.asList(
-            new String[] { "Child", "248", "View own profile, View sponsorship status, View wallet balance" },
-            new String[] { "Caregiver", "156",
-                    "Manage child profiles, Update medical records, Update education records, View all children" },
-            new String[] { "Donor", "532",
-                    "View sponsored children, Make donations, View transaction history, Generate reports" },
-            new String[] { "Support", "28", "User verification, Monitor alerts, View activity logs, Resolve issues" },
-            new String[] { "Admin", "8", "Full system access, User management, Role configuration, System settings" }));
 
     private java.util.List<String[]> activeAlerts = new java.util.ArrayList<>(java.util.Arrays.asList(
             new String[] { "critical", "Low Wallet Balance", "ALT-001", "2 hours ago",
@@ -335,13 +327,18 @@ public class AdminController {
         sub.setTextFill(Color.web(MUTED_FG()));
         VBox header = new VBox(4, title, sub);
 
+        // Load real-time user stats from database
+        java.util.List<User> allUsers = userService.getAllUsers();
+        int totalUsers = allUsers.size();
+        int activeUsers = (int) allUsers.stream().filter(User::isApproved).count();
+
         // 4 stat cards
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Users", "1,247", "+24 this week", PRIMARY, SECONDARY),
-                statCard("Database Size", "2.4 GB", "78% capacity", INFO, MUTED_FG()),
-                statCard("System Health", "98%", "All systems operational", SECONDARY, SECONDARY),
-                statCard("Active Sessions", "84", "Current active users", WARNING, MUTED_FG()));
+                statCard("Total Users", String.valueOf(totalUsers), activeUsers + " active", PRIMARY, SECONDARY),
+                statCard("Database Size", "N/A", "System storage", INFO, MUTED_FG()),
+                statCard("System Health", "100%", "All systems operational", SECONDARY, SECONDARY),
+                statCard("Active Sessions", String.valueOf(activeUsers), "Current active users", WARNING, MUTED_FG()));
 
         // 2-column metrics
         HBox metrics = new HBox(16);
@@ -402,12 +399,20 @@ public class AdminController {
         t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         card.getChildren().add(t);
 
+        // Load real-time user distribution from database
+        java.util.List<User> allUsers = userService.getAllUsers();
+        int totalUsers = Math.max(1, allUsers.size());
+
+        long systemAdminCount = allUsers.stream().filter(u -> u.getRole().toString().equals("SYSTEM_ADMIN")).count();
+        long orgAdminCount = allUsers.stream().filter(u -> u.getRole().toString().equals("ORGANIZATION_ADMIN")).count();
+        long donorCount = allUsers.stream().filter(u -> u.getRole().toString().equals("DONOR")).count();
+
         String[][] data = {
-                { "Children", "248", "20", CHART1 },
-                { "Donors", "532", "43", CHART2 },
-                { "Caregivers", "156", "13", CHART3 },
-                { "Support Reps", "28", "2", CHART4 },
-                { "Administrators", "8", "1", CHART5 }
+                { "System Admins", String.valueOf(systemAdminCount),
+                        String.valueOf((systemAdminCount * 100) / totalUsers), CHART1 },
+                { "Organization Admins", String.valueOf(orgAdminCount),
+                        String.valueOf((orgAdminCount * 100) / totalUsers), CHART2 },
+                { "Donors", String.valueOf(donorCount), String.valueOf((donorCount * 100) / totalUsers), CHART3 }
         };
         for (String[] row : data) {
             VBox item = new VBox(4);
@@ -938,12 +943,20 @@ public class AdminController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        // Load users from database
+        java.util.List<User> dbUsers = userService.getAllUsers();
+        int totalUsers = dbUsers.size();
+        int pendingUsers = (int) dbUsers.stream().filter(u -> !u.isApproved()).count();
+        int activeUsers = totalUsers - pendingUsers;
+
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Users", String.valueOf(currentUsers.size()), "+24 this week", PRIMARY, SECONDARY),
-                statCard("Active Users", "1,198", "96% of total", SECONDARY, MUTED_FG()),
-                statCard("Pending Approval", "12", "Awaiting verification", WARNING, WARNING),
-                statCard("Roles Configured", "5", "System roles", PRIMARY, MUTED_FG()));
+                statCard("Total Users", String.valueOf(totalUsers), pendingUsers + " pending approval", PRIMARY,
+                        SECONDARY),
+                statCard("Active Users", String.valueOf(activeUsers),
+                        ((activeUsers * 100 / Math.max(1, totalUsers)) + "% of total"), SECONDARY, MUTED_FG()),
+                statCard("Pending Approval", String.valueOf(pendingUsers), "Awaiting verification", WARNING, WARNING),
+                statCard("Roles Configured", "3", "System roles", PRIMARY, MUTED_FG()));
 
         // User Management table
         VBox userCard = new VBox(0);
@@ -987,7 +1000,17 @@ public class AdminController {
         }
 
         int rowCount = 1;
-        for (String[] u : currentUsers) {
+        for (User dbUser : dbUsers) {
+            // Convert User object to display format
+            String userId = "USR-" + String.format("%03d", dbUser.getId());
+            String name = dbUser.getUsername();
+            String email = dbUser.getUsername() + "@example.com"; // placeholder
+            String role = dbUser.getRole().toString().replace("_", " ");
+            String status = dbUser.isApproved() ? "Active" : "Pending";
+            String lastLogin = "N/A";
+
+            String[] u = new String[] { userId, name, email, role, status, lastLogin };
+
             // Filter logic
             if (!searchQuery.isEmpty()) {
                 boolean match = false;
@@ -1034,17 +1057,15 @@ public class AdminController {
             edit.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY
                     + "; -fx-padding: 4; -fx-cursor: hand;");
 
-            final String[] existingUser = u;
-            String userRole = u[3];
-            // The blue icon (pencil/edit) should go to role permissions
-            edit.setOnAction(e -> root.setCenter(buildEditPermissionsView(userRole, "Permissions for " + userRole)));
+            final int userIdToEdit = dbUser.getId();
+            edit.setOnAction(e -> root.setCenter(buildAddUserForm(dbUser)));
 
             Button del = new Button("\u2716");
             del.setStyle("-fx-background-color: transparent; -fx-text-fill: " + DESTRUCTIVE
                     + "; -fx-padding: 4; -fx-cursor: hand;");
-            final String[] userToRemove = u;
+            final int userIdToDelete = dbUser.getId();
             del.setOnAction(e -> {
-                currentUsers.remove(userToRemove);
+                userService.deleteUser(userIdToDelete);
                 root.setCenter(buildAdminPage(searchQuery));
             });
 
@@ -1056,9 +1077,9 @@ public class AdminController {
                 approve.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
                         + "; -fx-padding: 4; -fx-cursor: hand;");
                 approve.setTooltip(new Tooltip("Approve User"));
-                final String[] userToApprove = u;
+                final int userIdToApprove = dbUser.getId();
                 approve.setOnAction(e -> {
-                    userToApprove[4] = "Active";
+                    userService.approveUser(userIdToApprove);
                     root.setCenter(buildAdminPage(searchQuery));
                 });
                 actions.getChildren().add(0, approve);
@@ -1083,29 +1104,50 @@ public class AdminController {
 
         VBox rolesContent = new VBox(12);
         rolesContent.setPadding(new Insets(16));
-        for (String[] role : roleData) {
+
+        // Load real-time user counts from database
+        java.util.List<User> allUsers = userService.getAllUsers();
+        java.util.Map<String, Long> roleCounts = new java.util.HashMap<>();
+        for (User u : allUsers) {
+            String roleName = u.getRole().toString();
+            roleCounts.put(roleName, roleCounts.getOrDefault(roleName, 0L) + 1);
+        }
+
+        // Load role permissions from database
+        java.util.Map<String, String> rolePermissions = rolePermissionsService.getAllPermissions();
+
+        // Create role cards with real-time counts
+        for (String roleName : rolePermissions.keySet()) {
             VBox roleBox = new VBox(8);
             roleBox.setPadding(new Insets(16));
             roleBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 8;");
 
             HBox roleHdr = new HBox();
             VBox roleInfo = new VBox(2);
-            Label rn = new Label(role[0]);
+
+            // Display role name in readable format
+            String displayName = roleName.replace("_", " ");
+            Label rn = new Label(displayName);
             rn.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
-            Label ru = new Label(role[1] + " users");
+
+            // Show real-time user count
+            long userCount = roleCounts.getOrDefault(roleName, 0L);
+            Label ru = new Label(userCount + " users");
             ru.setFont(Font.font("Segoe UI", 11));
             ru.setTextFill(Color.web(MUTED_FG()));
             roleInfo.getChildren().addAll(rn, ru);
+
             Region rsp = new Region();
             HBox.setHgrow(rsp, Priority.ALWAYS);
             Button ep = new Button("Edit Permissions");
             ep.setStyle("-fx-background-color: " + PRIMARY
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-font-size: 12px; -fx-cursor: hand;");
-            ep.setOnAction(e -> root.setCenter(buildEditPermissionsView(role[0], role[2])));
+            ep.setOnAction(e -> root.setCenter(buildEditPermissionsView(roleName, rolePermissions.get(roleName))));
             roleHdr.getChildren().addAll(roleInfo, rsp, ep);
 
             FlowPane perms = new FlowPane(8, 8);
-            for (String p : role[2].split(", ")) {
+            String permissions = rolePermissions.get(roleName);
+            for (String p : permissions.split(", ")) {
                 Label pLabel = new Label(p);
                 pLabel.setFont(Font.font("Segoe UI", 11));
                 pLabel.setPadding(new Insets(4, 8, 4, 8));
@@ -1125,7 +1167,7 @@ public class AdminController {
         return scp;
     }
 
-    private ScrollPane buildAddUserForm(String[] userToEdit) {
+    private ScrollPane buildAddUserForm(User userToEdit) {
         VBox page = new VBox(24);
         page.setPadding(new Insets(32));
         page.setMaxWidth(600);
@@ -1142,66 +1184,226 @@ public class AdminController {
         form.setHgap(20);
         form.setVgap(20);
 
-        TextField nameTf = new TextField(userToEdit != null ? userToEdit[1] : "");
-        nameTf.setPromptText("Enter name");
-        TextField emailTf = new TextField(userToEdit != null ? userToEdit[2] : "");
-        emailTf.setPromptText("Enter email");
-        TextField userTf = new TextField();
-        userTf.setPromptText("Choose username");
-        ComboBox<String> roleCb = new ComboBox<>();
-        roleCb.getItems().addAll("Admin", "Caregiver", "Donor", "Support", "Child");
-        if (userToEdit != null)
-            roleCb.setValue(userToEdit[3]);
-        roleCb.setMaxWidth(Double.MAX_VALUE);
-        roleCb.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-radius: 4; -fx-text-fill: " + TEXT() + ";");
-
         String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() +
                 "; -fx-border-radius: 4; -fx-padding: 8; -fx-text-fill: " + TEXT() +
                 "; -fx-prompt-text-fill: " + MUTED_FG() + ";";
+
+        // Username field
+        TextField nameTf = new TextField(userToEdit != null ? userToEdit.getUsername() : "");
+        nameTf.setPromptText("Enter username");
         nameTf.setStyle(fieldStyle);
-        emailTf.setStyle(fieldStyle);
-        userTf.setStyle(fieldStyle);
 
-        Label lbl1 = new Label("Full Name");
+        Label lbl1 = new Label("Username");
         lbl1.setTextFill(Color.web(TEXT()));
-        Label lbl2 = new Label("Email Address");
-        lbl2.setTextFill(Color.web(TEXT()));
-        Label lbl3 = new Label("Username");
-        lbl3.setTextFill(Color.web(TEXT()));
-        Label lbl4 = new Label("Role");
-        lbl4.setTextFill(Color.web(TEXT()));
-
         form.add(lbl1, 0, 0);
         form.add(nameTf, 1, 0);
-        form.add(lbl2, 0, 1);
-        form.add(emailTf, 1, 1);
-        form.add(lbl3, 0, 2);
-        form.add(userTf, 1, 2);
-        form.add(lbl4, 0, 3);
-        form.add(roleCb, 1, 3);
 
+        // Password fields (required for new user, optional for edit)
+        PasswordField passTf = new PasswordField();
+        passTf.setPromptText(
+                userToEdit == null ? "Enter password" : "Enter new password (leave blank to keep current)");
+        passTf.setStyle(fieldStyle);
+
+        PasswordField confirmTf = new PasswordField();
+        confirmTf.setPromptText(userToEdit == null ? "Confirm password" : "Confirm new password");
+        confirmTf.setStyle(fieldStyle);
+
+        Label lbl2 = new Label("Password");
+        lbl2.setTextFill(Color.web(TEXT()));
+        Label lbl3 = new Label("Confirm Password");
+        lbl3.setTextFill(Color.web(TEXT()));
+
+        form.add(lbl2, 0, 1);
+        form.add(passTf, 1, 1);
+        form.add(lbl3, 0, 2);
+        form.add(confirmTf, 1, 2);
+
+        // Email field
+        TextField emailTf = new TextField(
+                userToEdit != null && userToEdit.getEmail() != null ? userToEdit.getEmail() : "");
+        emailTf.setPromptText("Enter email address");
+        emailTf.setStyle(fieldStyle);
+
+        Label lblEmail = new Label("Email");
+        lblEmail.setTextFill(Color.web(TEXT()));
+        form.add(lblEmail, 0, 3);
+        form.add(emailTf, 1, 3);
+
+        // Role selection (only for new user)
+        int currentRow = 4;
+        ComboBox<String> roleCombo = null;
+        if (userToEdit == null) {
+            Label lbl4 = new Label("Role");
+            lbl4.setTextFill(Color.web(TEXT()));
+
+            ComboBox<String> roleComboBox = new ComboBox<>();
+            roleComboBox.getItems().addAll("System Admin", "Organization Admin", "Donor", "Caregiver", "Support");
+            roleComboBox.setPromptText("Select role");
+            roleComboBox.setStyle(fieldStyle + " -fx-background-radius: 4;");
+
+            // Theme the ComboBox button cell and dropdown
+            roleComboBox.setButtonCell(new ListCell<String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setStyle("-fx-text-fill: " + MUTED_FG() + ";");
+                    } else {
+                        setText(item);
+                        setStyle("-fx-text-fill: " + TEXT() + ";");
+                    }
+                }
+            });
+
+            roleComboBox.setCellFactory(lv -> new ListCell<String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(item);
+                        setStyle("-fx-text-fill: " + TEXT() + "; -fx-background-color: " + CARD() + ";");
+                    }
+                }
+            });
+
+            // Style dropdown background - use final local variable for lambda
+            final ComboBox<String> finalRoleComboBox = roleComboBox;
+            roleComboBox.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+                if (newSkin != null) {
+                    Node popup = finalRoleComboBox.lookup(".list-view");
+                    if (popup != null) {
+                        popup.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + ";");
+                    }
+                }
+            });
+
+            form.add(lbl4, 0, currentRow);
+            form.add(roleComboBox, 1, currentRow);
+            roleCombo = roleComboBox; // Assign to outer variable for later access
+            currentRow++;
+        } else {
+            // Show role as read-only for existing users
+            Label roleLbl = new Label("Role: " + userToEdit.getRole().toString().replace("_", " "));
+            roleLbl.setFont(Font.font("Segoe UI", 13));
+            roleLbl.setTextFill(Color.web(MUTED_FG()));
+
+            Label lbl4 = new Label("");
+            form.add(lbl4, 0, currentRow);
+            form.add(roleLbl, 1, currentRow);
+            currentRow++;
+        }
+
+        // Approval status
+        CheckBox approvedCb = new CheckBox("Approved");
+        approvedCb.setSelected(userToEdit != null && userToEdit.isApproved());
+        approvedCb.setTextFill(Color.web(TEXT()));
+
+        Label lbl5 = new Label("Status");
+        lbl5.setTextFill(Color.web(TEXT()));
+        form.add(lbl5, 0, currentRow);
+        form.add(approvedCb, 1, currentRow);
+
+        // Error label for validation messages
+        Label errorLabel = new Label();
+        errorLabel.setTextFill(Color.web(DESTRUCTIVE));
+        errorLabel.setWrapText(true);
+        errorLabel.setVisible(false);
+
+        // Submit button
+        ComboBox<String> finalRoleCombo = roleCombo;
         Button submit = new Button(userToEdit == null ? "Create User Account" : "Update User Account");
         submit.setMaxWidth(Double.MAX_VALUE);
         submit.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 12; -fx-font-weight: bold; -fx-cursor: hand;");
         submit.setOnAction(e -> {
-            String name = nameTf.getText().isEmpty() ? "New User" : nameTf.getText();
-            String email = emailTf.getText().isEmpty() ? "new@example.com" : emailTf.getText();
-            String role = roleCb.getValue() == null ? "Support" : roleCb.getValue();
+            String username = nameTf.getText().trim();
+            String password = passTf.getText();
+            String confirmPass = confirmTf.getText();
+            String email = emailTf.getText().trim();
+
+            // Hide previous errors
+            errorLabel.setVisible(false);
+
+            // Validation
+            if (username.isEmpty()) {
+                errorLabel.setText("Username is required");
+                errorLabel.setVisible(true);
+                return;
+            }
 
             if (userToEdit == null) {
-                currentUsers.add(0,
-                        new String[] { "USR-" + (currentUsers.size() + 1), name, email, role, "Active", "Never" });
+                // Creating new user - password and role are required
+                if (password.isEmpty()) {
+                    errorLabel.setText("Password is required");
+                    errorLabel.setVisible(true);
+                    return;
+                }
+
+                if (!password.equals(confirmPass)) {
+                    errorLabel.setText("Passwords do not match");
+                    errorLabel.setVisible(true);
+                    return;
+                }
+
+                if (finalRoleCombo.getValue() == null) {
+                    errorLabel.setText("Please select a role");
+                    errorLabel.setVisible(true);
+                    return;
+                }
+
+                // Create new user based on selected role
+                String hashedPassword = PasswordUtil.hash(password);
+                User newUser = null;
+                String selectedRole = finalRoleCombo.getValue();
+
+                if (selectedRole.equals("System Admin")) {
+                    newUser = new SystemAdmin(username, hashedPassword);
+                } else if (selectedRole.equals("Organization Admin")) {
+                    newUser = new OrganizationAdmin(username, hashedPassword);
+                } else if (selectedRole.equals("Donor")) {
+                    newUser = new Donor(username, hashedPassword);
+                } else if (selectedRole.equals("Caregiver")) {
+                    newUser = new Caregiver(username, hashedPassword);
+                } else if (selectedRole.equals("Support")) {
+                    newUser = new Support(username, hashedPassword);
+                }
+
+                if (newUser != null) {
+                    newUser.setEmail(email);
+                    newUser.setApproved(approvedCb.isSelected());
+                    boolean created = userService.createUser(newUser);
+                    if (created) {
+                        root.setCenter(buildAdminPage());
+                    } else {
+                        errorLabel.setText("Username already exists or failed to create user");
+                        errorLabel.setVisible(true);
+                    }
+                }
             } else {
-                userToEdit[1] = name;
-                userToEdit[2] = email;
-                userToEdit[3] = role;
+                // Updating existing user
+                userToEdit.setUsername(username);
+                userToEdit.setEmail(email);
+                userToEdit.setApproved(approvedCb.isSelected());
+
+                // Update password only if new password is provided
+                if (!password.isEmpty()) {
+                    if (!password.equals(confirmPass)) {
+                        errorLabel.setText("Passwords do not match");
+                        errorLabel.setVisible(true);
+                        return;
+                    }
+                    userToEdit.setPassword(PasswordUtil.hash(password));
+                }
+
+                userService.updateUser(userToEdit);
+                root.setCenter(buildAdminPage());
             }
-            root.setCenter(buildAdminPage());
         });
 
-        page.getChildren().addAll(backBtn, title, form, submit);
+        page.getChildren().addAll(backBtn, title, form, errorLabel, submit);
         ScrollPane scp = new ScrollPane(page);
         scp.setFitToWidth(true);
         scp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
@@ -1255,13 +1457,10 @@ public class AdminController {
                 }
             }
 
-            // Update the source data
-            for (String[] r : roleData) {
-                if (r[0].equals(roleName)) {
-                    r[2] = sb.toString();
-                    break;
-                }
-            }
+            // Save permissions to database permanently
+            rolePermissionsService.updatePermissions(roleName, sb.toString());
+
+            // Return to admin page and refresh to show updated permissions
             root.setCenter(buildAdminPage());
         });
 

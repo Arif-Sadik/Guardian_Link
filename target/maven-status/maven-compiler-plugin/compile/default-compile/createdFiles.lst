@@ -1,3 +1,7 @@
+model\user\Caregiver.class
+model\user\Support.class
+repository\RolePermissionsRepository.class
+controller\AuthController$2.class
 model\user\SystemAdmin.class
 service\AuthService.class
 service\ChildService.class
@@ -6,12 +10,17 @@ app\Main.class
 repository\UserRepository$1.class
 repository\MedicalRecordRepository.class
 service\UserService.class
+app\DbCheck.class
 app\Launcher.class
+controller\AdminController$1.class
 model\user\Donor.class
+controller\AuthController$5.class
 exception\UserNotApprovedException.class
 model\entity\EducationRecord.class
+controller\AuthController$6.class
 repository\UserRepository.class
 model\entity\MedicalRecord.class
+controller\AuthController$3.class
 controller\DonorController.class
 repository\ChildRepository.class
 controller\AuthController.class
@@ -27,3 +36,7 @@ util\PasswordUtil.class
 controller\AuthController$1.class
 model\user\User.class
 service\EducationRecordService.class
+controller\AuthController$4.class
+controller\AdminController$2.class
+controller\AuthController$7.class
+service\RolePermissionsService.class

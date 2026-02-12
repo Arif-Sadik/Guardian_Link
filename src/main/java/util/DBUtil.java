@@ -41,6 +41,7 @@ public class DBUtil {
                             id       INTEGER PRIMARY KEY AUTOINCREMENT,
                             username TEXT    UNIQUE,
                             password TEXT,
+                            email    TEXT,
                             role     TEXT,
                             approved INTEGER
                         )
@@ -100,6 +101,13 @@ public class DBUtil {
                         )
                     """);
 
+            stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS role_permissions (
+                            role_name   TEXT PRIMARY KEY,
+                            permissions TEXT
+                        )
+                    """);
+
             // ── Seed data (only on first run) ────────────────
 
             var rs = stmt.executeQuery("SELECT COUNT(*) FROM users");
@@ -112,6 +120,13 @@ public class DBUtil {
                 seedSystemLogs(conn);
             }
             rs.close();
+
+            // Seed role permissions if empty
+            var rsPerms = stmt.executeQuery("SELECT COUNT(*) FROM role_permissions");
+            if (rsPerms.next() && rsPerms.getInt(1) == 0) {
+                seedRolePermissions(conn);
+            }
+            rsPerms.close();
             stmt.close();
 
         } catch (SQLException e) {
@@ -123,28 +138,31 @@ public class DBUtil {
     // ── Seed Users ───────────────────────────────────────────
 
     private static void seedUsers(Connection conn) throws SQLException {
-        String sql = "INSERT INTO users (username, password, role, approved) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, password, email, role, approved) VALUES (?, ?, ?, ?, ?)";
         PreparedStatement ps = conn.prepareStatement(sql);
 
         // System Admin (approved)
         ps.setString(1, "admin");
         ps.setString(2, PasswordUtil.hash("admin123"));
-        ps.setString(3, "SYSTEM_ADMIN");
-        ps.setInt(4, 1);
+        ps.setString(3, "admin@guardianlink.org");
+        ps.setString(4, "SYSTEM_ADMIN");
+        ps.setInt(5, 1);
         ps.executeUpdate();
 
         // Organization Admin (approved)
         ps.setString(1, "orgadmin");
         ps.setString(2, PasswordUtil.hash("org123"));
-        ps.setString(3, "ORGANIZATION_ADMIN");
-        ps.setInt(4, 1);
+        ps.setString(3, "orgadmin@guardianlink.org");
+        ps.setString(4, "ORGANIZATION_ADMIN");
+        ps.setInt(5, 1);
         ps.executeUpdate();
 
         // Donor (approved)
         ps.setString(1, "donor");
         ps.setString(2, PasswordUtil.hash("donor123"));
-        ps.setString(3, "DONOR");
-        ps.setInt(4, 1);
+        ps.setString(3, "donor@example.com");
+        ps.setString(4, "DONOR");
+        ps.setInt(5, 1);
         ps.executeUpdate();
 
         ps.close();
@@ -272,5 +290,40 @@ public class DBUtil {
         ps.setString(3, actor);
         ps.setString(4, time);
         ps.executeUpdate();
+    }
+
+    // ── Seed Role Permissions ────────────────────────────────
+
+    private static void seedRolePermissions(Connection conn) throws SQLException {
+        String sql = "INSERT INTO role_permissions (role_name, permissions) VALUES (?, ?)";
+        PreparedStatement ps = conn.prepareStatement(sql);
+
+        // System Admin permissions
+        ps.setString(1, "SYSTEM_ADMIN");
+        ps.setString(2, "Full system access, User management, Role configuration, System settings");
+        ps.executeUpdate();
+
+        // Organization Admin permissions
+        ps.setString(1, "ORGANIZATION_ADMIN");
+        ps.setString(2, "Manage child profiles, Update medical records, Update education records, View all children");
+        ps.executeUpdate();
+
+        // Donor permissions
+        ps.setString(1, "DONOR");
+        ps.setString(2, "View sponsored children, Make donations, View transaction history, Generate reports");
+        ps.executeUpdate();
+
+        // Caregiver permissions
+        ps.setString(1, "CAREGIVER");
+        ps.setString(2,
+                "Manage assigned children, Update daily care logs, View medical records, Communicate with donors");
+        ps.executeUpdate();
+
+        // Support permissions
+        ps.setString(1, "SUPPORT");
+        ps.setString(2, "View user concerns, Resolve user problems, Access help desk, Generate support tickets");
+        ps.executeUpdate();
+
+        ps.close();
     }
 }

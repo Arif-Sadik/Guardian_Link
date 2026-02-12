@@ -37,4 +37,29 @@ public class UserService {
     public void approveUser(int userId) {
         userRepository.approveUser(userId);
     }
+
+    /**
+     * Deletes a user by their database ID.
+     * 
+     * @return true if deleted successfully, false otherwise
+     */
+    public boolean deleteUser(int userId) {
+        return userRepository.deleteUser(userId);
+    }
+
+    /**
+     * Updates an existing user's information.
+     * 
+     * @return true if updated successfully, false otherwise
+     */
+    public boolean updateUser(User user) {
+        return userRepository.updateUser(user);
+    }
+
+    /**
+     * Finds a user by their database ID.
+     */
+    public User findById(int userId) {
+        return userRepository.findById(userId);
+    }
 }
