@@ -28,8 +28,14 @@ public class AuthController {
     private static final String PRIMARY = "#2563eb";
     private static final String SECONDARY = "#22c55e";
 
+    private final TextField loginUserField = new TextField();
+    private final PasswordField loginPassField = new PasswordField();
+
     public AuthController(Stage stage) {
         this.stage = stage;
+        // Initialize fields
+        loginUserField.setPromptText("Enter your username");
+        loginPassField.setPromptText("Enter your password");
     }
 
     public void show() {
@@ -113,18 +119,18 @@ public class AuthController {
         Label userLabel = new Label("Username or Email");
         userLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         userLabel.setTextFill(Color.web(util.ThemeManager.getText()));
-        TextField userField = new TextField();
-        userField.setPromptText("Enter your username");
-        styleInput(userField);
-        VBox.setMargin(userField, new Insets(8, 0, 20, 0));
+
+        // Use class-level field
+        styleInput(loginUserField);
+        VBox.setMargin(loginUserField, new Insets(8, 0, 20, 0));
 
         Label passLabel = new Label("Password");
         passLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         passLabel.setTextFill(Color.web(util.ThemeManager.getText()));
-        PasswordField passField = new PasswordField();
-        passField.setPromptText("Enter your password");
-        styleInput(passField);
-        VBox.setMargin(passField, new Insets(8, 0, 24, 0));
+
+        // Use class-level field
+        styleInput(loginPassField);
+        VBox.setMargin(loginPassField, new Insets(8, 0, 24, 0));
 
         Label errorLabel = new Label();
         errorLabel.setTextFill(Color.web("#dc2626"));
@@ -139,8 +145,8 @@ public class AuthController {
                 PRIMARY));
         signInBtn.setOnMouseEntered(e -> signInBtn.setStyle(signInBtn.getStyle().replace(PRIMARY, "#1d4ed8")));
         signInBtn.setOnMouseExited(e -> signInBtn.setStyle(signInBtn.getStyle().replace("#1d4ed8", PRIMARY)));
-        signInBtn.setOnAction(e -> handleLogin(userField.getText(), passField.getText(), errorLabel));
-        passField.setOnAction(e -> signInBtn.fire());
+        signInBtn.setOnAction(e -> handleLogin(loginUserField.getText(), loginPassField.getText(), errorLabel));
+        loginPassField.setOnAction(e -> signInBtn.fire());
 
         // Divider
         HBox divider = new HBox();
@@ -176,8 +182,8 @@ public class AuthController {
 
         formBox.getChildren().addAll(
                 welcomeTitle, welcomeSub,
-                userLabel, userField,
-                passLabel, passField,
+                userLabel, loginUserField,
+                passLabel, loginPassField,
                 errorLabel, signInBtn, divider, signUpBtn);
         rightPanel.getChildren().add(formBox);
 
@@ -1057,8 +1063,8 @@ public class AuthController {
                 case SYSTEM_ADMIN -> new AdminController(stage, user).show();
                 case ORGANIZATION_ADMIN -> new OrgAdminController(stage, user).show();
                 case DONOR -> new DonorController(stage, user).show();
-                case CAREGIVER -> new OrgAdminController(stage, user).show();
-                case SUPPORT -> new AdminController(stage, user).show();
+                case CAREGIVER -> new CaregiverController(stage, user).show(); // Redirect to Caregiver Dashboard
+                case SUPPORT -> new SupportController(stage, user).show(); // Redirect to Support Dashboard
                 default -> errorLabel.setText("Unknown user role.");
             }
         } catch (UserNotApprovedException e) {
