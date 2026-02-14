@@ -9,7 +9,11 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import model.entity.Child;
+import model.entity.Donation;
+import model.entity.SystemLog;
 import model.user.User;
 import model.user.UserRole;
 import model.user.SystemAdmin;
@@ -17,10 +21,19 @@ import model.user.OrganizationAdmin;
 import model.user.Donor;
 import model.user.Caregiver;
 import model.user.Support;
+import service.ChildService;
+import service.DonationService;
+import service.SystemLogService;
 import service.UserService;
 import service.RolePermissionsService;
 import util.ThemeManager;
 import util.PasswordUtil;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * System Administrator dashboard — Figma-matched.
@@ -31,6 +44,9 @@ public class AdminController {
     private final Stage stage;
     private final User user;
     private final UserService userService = new UserService();
+    private final ChildService childService = new ChildService();
+    private final DonationService donationService = new DonationService();
+    private final SystemLogService systemLogService = new SystemLogService();
     private final RolePermissionsService rolePermissionsService = new RolePermissionsService();
     private BorderPane root;
     private VBox sidebar;
@@ -380,6 +396,7 @@ public class AdminController {
 
         Label v = new Label(value);
         v.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        v.setTextFill(Color.web(TEXT()));
 
         Label d = new Label(detail);
         d.setFont(Font.font("Segoe UI", 11));
@@ -450,30 +467,33 @@ public class AdminController {
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        Label t = new Label("System Activity (Last 7 Days)");
+        Label t = new Label("Recent System Activity");
         t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        t.setTextFill(Color.web(TEXT()));
         card.getChildren().add(t);
 
-        String[][] data = {
-                { "New Registrations", "24" },
-                { "Profile Updates", "187" },
-                { "Donations Processed", "92" },
-                { "Reports Generated", "45" },
-                { "Alerts Resolved", "31" }
-        };
-        for (String[] row : data) {
-            HBox item = new HBox();
-            item.setPadding(new Insets(8, 0, 8, 0));
-            item.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
-            Label name = new Label(row[0]);
-            name.setFont(Font.font("Segoe UI", 13));
-            Region sp = new Region();
-            HBox.setHgrow(sp, Priority.ALWAYS);
-            Label count = new Label(row[1]);
-            count.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
-            count.setTextFill(Color.web(PRIMARY));
-            item.getChildren().addAll(name, sp, count);
-            card.getChildren().add(item);
+        java.util.List<SystemLog> recentLogs = systemLogService.getRecent(5);
+        if (recentLogs.isEmpty()) {
+            Label empty = new Label("No recent activity");
+            empty.setFont(Font.font("Segoe UI", 13));
+            empty.setTextFill(Color.web(MUTED_FG()));
+            card.getChildren().add(empty);
+        } else {
+            for (SystemLog log : recentLogs) {
+                HBox item = new HBox();
+                item.setPadding(new Insets(8, 0, 8, 0));
+                item.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                Label name = new Label(log.getDescription());
+                name.setFont(Font.font("Segoe UI", 13));
+                name.setTextFill(Color.web(TEXT()));
+                Region sp = new Region();
+                HBox.setHgrow(sp, Priority.ALWAYS);
+                Label time = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
+                time.setFont(Font.font("Segoe UI", 11));
+                time.setTextFill(Color.web(MUTED_FG()));
+                item.getChildren().addAll(name, sp, time);
+                card.getChildren().add(item);
+            }
         }
         return card;
     }
@@ -546,29 +566,29 @@ public class AdminController {
             grid.add(h, i, 0);
         }
 
-        String[][] rows = {
-                { "Jan 26, 2026 14:23", "User Action", "Dr. Rafiqul Islam", "Updated child profile CH-1024",
-                        "Success" },
-                { "Jan 26, 2026 14:15", "System", "System", "Database backup completed", "Success" },
-                { "Jan 26, 2026 13:45", "User Action", "Ashab Raiyan", "Donation processed: \u09F3 6,000", "Success" },
-                { "Jan 26, 2026 13:20", "Authentication", "Fahim Ahmed", "User login successful", "Success" },
-                { "Jan 26, 2026 12:58", "Alert", "System", "Low wallet balance detected", "Warning" },
-        };
-        for (int r = 0; r < rows.length; r++) {
-            for (int c = 0; c < rows[r].length; c++) {
-                Label cell = new Label(rows[r][c]);
+        java.util.List<SystemLog> logs = systemLogService.getRecent(5);
+        for (int r = 0; r < logs.size(); r++) {
+            SystemLog log = logs.get(r);
+            String[] rowData = {
+                    log.getTimestamp() != null ? log.getTimestamp() : "",
+                    log.getEventType() != null ? log.getEventType() : "",
+                    log.getActor() != null ? log.getActor() : "",
+                    log.getDescription() != null ? log.getDescription() : "",
+                    "Success"
+            };
+            for (int c = 0; c < rowData.length; c++) {
+                Label cell = new Label(rowData[c]);
                 cell.setFont(Font.font(c == 0 ? "Consolas" : "Segoe UI", c == 0 ? 11 : 13));
-                if (c == 0)
-                    cell.setTextFill(Color.web(MUTED_FG()));
+                cell.setTextFill(Color.web(c == 0 ? MUTED_FG() : TEXT()));
                 cell.setPadding(new Insets(12, 16, 12, 16));
                 cell.setMaxWidth(Double.MAX_VALUE);
                 cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
 
                 if (c == 4) {
-                    Label badge = new Label(rows[r][c]);
+                    Label badge = new Label(rowData[c]);
                     badge.setFont(Font.font("Segoe UI", 11));
-                    String bgC = rows[r][c].equals("Success") ? SECONDARY + "1A" : WARNING + "1A";
-                    String fgC = rows[r][c].equals("Success") ? SECONDARY : WARNING;
+                    String bgC = SECONDARY + "1A";
+                    String fgC = SECONDARY;
                     badge.setStyle("-fx-background-color: " + bgC + "; -fx-text-fill: " + fgC
                             + "; -fx-background-radius: 4; -fx-padding: 2 8;");
                     HBox wrapper = new HBox(badge);
@@ -592,6 +612,7 @@ public class AdminController {
 
         Label title = new Label("Child Profiles");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
         Label sub = new Label("View and manage child profiles");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
@@ -600,46 +621,58 @@ public class AdminController {
         tableCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        HBox hdr = new HBox();
+        HBox hdr = new HBox(12);
         hdr.setPadding(new Insets(16));
         hdr.setAlignment(Pos.CENTER_LEFT);
         hdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
-        Label tl = new Label("Assigned Children");
+        Label tl = new Label("All Children");
         tl.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
-        hdr.getChildren().add(tl);
+        tl.setTextFill(Color.web(TEXT()));
+        Region hdrSpacer = new Region();
+        HBox.setHgrow(hdrSpacer, Priority.ALWAYS);
+        Button addChildBtn = new Button("+ Add Child");
+        addChildBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand;");
+        addChildBtn.setOnAction(e -> root.setCenter(buildAddChildForm()));
+        hdr.getChildren().addAll(tl, hdrSpacer, addChildBtn);
 
         GridPane grid = new GridPane();
-        String[] cols = { "Child ID", "Name", "Age", "Status", "Last Updated", "Actions" };
+        String[] cols = { "Child ID", "Name", "Age", "Gender", "Status", "Organization", "Actions" };
         for (int i = 0; i < cols.length; i++) {
             Label h = new Label(cols[i]);
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
             h.setPadding(new Insets(8, 16, 8, 16));
             h.setMaxWidth(Double.MAX_VALUE);
             h.setStyle("-fx-background-color: " + MUTED() + ";");
+            h.setTextFill(Color.web(TEXT()));
             grid.add(h, i, 0);
         }
 
-        String[][] rows = {
-                { "CH-1024", "Tahmid Rahman", "10", "Active", "Jan 25, 2026" },
-                { "CH-1025", "Mugdho Hossain", "8", "Active", "Jan 24, 2026" },
-                { "CH-1026", "Sokina Akter", "12", "Active", "Jan 23, 2026" },
-                { "CH-1027", "Nabil Khan", "9", "Pending", "Jan 22, 2026" },
-                { "CH-1028", "Faiza Ahmed", "11", "Active", "Jan 21, 2026" },
-        };
-        for (int r = 0; r < rows.length; r++) {
-            for (int c = 0; c < 5; c++) {
-                Label cell = new Label(rows[r][c]);
+        java.util.List<Child> children = childService.getAllChildren();
+        for (int r = 0; r < children.size(); r++) {
+            Child child = children.get(r);
+            String[] rowData = {
+                    "CH-" + (1000 + child.getId()),
+                    child.getName(),
+                    String.valueOf(child.getAge()),
+                    child.getGender() != null ? child.getGender() : "",
+                    child.getStatus() != null ? child.getStatus() : "Active",
+                    child.getOrganization() != null ? child.getOrganization() : ""
+            };
+            for (int c = 0; c < rowData.length; c++) {
+                Label cell = new Label(rowData[c]);
                 cell.setFont(Font.font(c == 0 ? "Consolas" : "Segoe UI", c == 0 ? 12 : 13));
+                cell.setTextFill(Color.web(TEXT()));
                 if (c == 1)
                     cell.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
                 cell.setPadding(new Insets(12, 16, 12, 16));
                 cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
 
-                if (c == 3) {
-                    Label badge = new Label(rows[r][c]);
+                if (c == 4) {
+                    Label badge = new Label(rowData[c]);
                     badge.setFont(Font.font("Segoe UI", 11));
-                    String bgC = rows[r][c].equals("Active") ? SECONDARY + "1A" : WARNING + "1A";
-                    String fgC = rows[r][c].equals("Active") ? SECONDARY : WARNING;
+                    String bgC = rowData[c].equals("Active") ? SECONDARY + "1A" : WARNING + "1A";
+                    String fgC = rowData[c].equals("Active") ? SECONDARY : WARNING;
                     badge.setStyle("-fx-background-color: " + bgC + "; -fx-text-fill: " + fgC
                             + "; -fx-background-radius: 4; -fx-padding: 2 8;");
                     HBox w = new HBox(badge);
@@ -648,7 +681,7 @@ public class AdminController {
                     grid.add(w, c, r + 1);
                     continue;
                 }
-                if (c == 4)
+                if (c == 5)
                     cell.setTextFill(Color.web(MUTED_FG()));
                 grid.add(cell, c, r + 1);
             }
@@ -657,24 +690,39 @@ public class AdminController {
             actions.setAlignment(Pos.CENTER_LEFT);
             actions.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0; -fx-padding: 12 16;");
 
+            final int childId = child.getId();
+            final String childName = child.getName();
+
             Hyperlink viewLink = new Hyperlink("View");
             viewLink.setFont(Font.font("Segoe UI", 13));
             viewLink.setTextFill(Color.web(PRIMARY));
-            final String childName = rows[r][1];
-            final String childId = rows[r][0];
-            viewLink.setOnAction(e -> root.setCenter(buildChildProfileDetailView(childId, childName)));
+            viewLink.setOnAction(e -> root.setCenter(buildChildProfileDetailView(childId)));
 
             Hyperlink editLink = new Hyperlink("Edit");
             editLink.setFont(Font.font("Segoe UI", 13));
             editLink.setTextFill(Color.web(PRIMARY));
-            editLink.setOnAction(e -> {
-                // For demo, we just show an alert or redirect to a form
-                Alert a = new Alert(Alert.AlertType.INFORMATION, "Editing child: " + childName);
-                a.show();
+            editLink.setOnAction(e -> root.setCenter(buildEditChildForm(childId)));
+
+            Hyperlink deleteLink = new Hyperlink("Delete");
+            deleteLink.setFont(Font.font("Segoe UI", 13));
+            deleteLink.setTextFill(Color.web(DESTRUCTIVE));
+            deleteLink.setOnAction(e -> {
+                Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                        "Are you sure you want to delete " + childName + "?",
+                        ButtonType.YES, ButtonType.NO);
+                confirm.showAndWait().ifPresent(bt -> {
+                    if (bt == ButtonType.YES) {
+                        childService.deleteChild(childId);
+                        systemLogService.save(new SystemLog("Data Update",
+                                "Deleted child profile: " + childName, user.getUsername(),
+                                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                        root.setCenter(buildChildrenPage());
+                    }
+                });
             });
 
-            actions.getChildren().addAll(viewLink, editLink);
-            grid.add(actions, 5, r + 1);
+            actions.getChildren().addAll(viewLink, editLink, deleteLink);
+            grid.add(actions, 6, r + 1);
         }
 
         tableCard.getChildren().addAll(hdr, grid);
@@ -832,13 +880,54 @@ public class AdminController {
         HBox.setHgrow(col2, Priority.ALWAYS);
         row1.getChildren().addAll(col1, col2);
 
+        // Load donations from DB
+        java.util.List<Donation> allDonations = donationService.getAll();
+        java.util.List<Child> allChildren = childService.getAllChildren();
+        java.util.List<User> allUsersForReport = userService.getAllUsers();
+        java.util.Map<Integer, String> childNames = new java.util.HashMap<>();
+        for (Child ch : allChildren)
+            childNames.put(ch.getId(), ch.getName());
+        java.util.Map<Integer, String> userNames = new java.util.HashMap<>();
+        for (User u : allUsersForReport)
+            userNames.put(u.getId(), u.getUsername());
+
+        double totalDonated = allDonations.stream().mapToDouble(Donation::getAmount).sum();
+
         HBox buttons = new HBox(12);
         Button genBtn = new Button("\uD83D\uDCC4  Generate Report");
         genBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        genBtn.setOnAction(e -> {
+            systemLogService.save(new SystemLog("Report", "Generated " + rtCombo.getValue(), user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            root.setCenter(buildReportsPage());
+        });
         Button csvBtn = new Button("\u2B07  Export to CSV");
         csvBtn.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        csvBtn.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Export CSV");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+            fc.setInitialFileName("donation_report.csv");
+            File file = fc.showSaveDialog(stage);
+            if (file != null) {
+                try (FileWriter fw = new FileWriter(file)) {
+                    fw.write("Donor,Child,Amount,Date,Purpose\n");
+                    for (Donation d : allDonations) {
+                        fw.write(String.format("%s,%s,%.0f,%s,%s\n",
+                                userNames.getOrDefault(d.getDonorId(), "Unknown"),
+                                childNames.getOrDefault(d.getChildId(), "Unknown"),
+                                d.getAmount(), d.getDate(), d.getPurpose()));
+                    }
+                    systemLogService.save(new SystemLog("Export", "Exported donation CSV", user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                    new Alert(Alert.AlertType.INFORMATION, "CSV exported successfully!").show();
+                } catch (IOException ex) {
+                    new Alert(Alert.AlertType.ERROR, "Export failed: " + ex.getMessage()).show();
+                }
+            }
+        });
         buttons.getChildren().addAll(genBtn, csvBtn);
 
         genCard.getChildren().addAll(genTitle, row1, buttons);
@@ -853,15 +942,17 @@ public class AdminController {
         rHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
         Label rTitle = new Label("Report Preview - Donation & Financial Report");
         rTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        rTitle.setTextFill(Color.web(TEXT()));
         rHdr.getChildren().add(rTitle);
 
-        // Summary stats
+        // Summary stats from DB
         HBox summaryStats = new HBox(16);
         summaryStats.setPadding(new Insets(16));
+        String totalStr = String.format("\u09F3%,.0f", totalDonated);
         for (String[] s : new String[][] {
-                { "Total Donations", "৳13,400,000", null },
-                { "Total Disbursed", "৳12,700,000", null },
-                { "Available Balance", "৳700,000", SECONDARY }
+                { "Total Donations", totalStr, null },
+                { "Total Records", String.valueOf(allDonations.size()), null },
+                { "Children Covered", String.valueOf(childNames.size()), SECONDARY }
         }) {
             VBox sBox = new VBox(4);
             sBox.setPadding(new Insets(12));
@@ -872,6 +963,7 @@ public class AdminController {
             sl.setTextFill(Color.web(MUTED_FG()));
             Label sv = new Label(s[1]);
             sv.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 20));
+            sv.setTextFill(Color.web(TEXT()));
             if (s[2] != null)
                 sv.setTextFill(Color.web(s[2]));
             sBox.getChildren().addAll(sl, sv);
@@ -886,19 +978,22 @@ public class AdminController {
             h.setPadding(new Insets(8, 12, 8, 12));
             h.setStyle("-fx-background-color: " + MUTED() + ";");
             h.setMaxWidth(Double.MAX_VALUE);
+            h.setTextFill(Color.web(TEXT()));
             donGrid.add(h, i, 0);
         }
-        String[][] donRows = {
-                { "Emily Johnson", "Sarah Williams", "৳16,000", "Jan 20, 2026", "Education" },
-                { "Emily Johnson", "Michael Omondi", "৳21,000", "Jan 20, 2026", "Medical" },
-                { "John Smith", "Amina Hassan", "৳19,000", "Jan 19, 2026", "General Welfare" },
-                { "Emily Johnson", "Sarah Williams", "৳16,000", "Jan 15, 2026", "Food & Nutrition" },
-                { "Maria Garcia", "David Kimani", "৳23,000", "Jan 14, 2026", "Education" },
-        };
-        for (int r = 0; r < donRows.length; r++) {
-            for (int c = 0; c < donRows[r].length; c++) {
-                Label cell = new Label(donRows[r][c]);
+        for (int r = 0; r < allDonations.size(); r++) {
+            Donation don = allDonations.get(r);
+            String[] rowData = {
+                    userNames.getOrDefault(don.getDonorId(), "Donor #" + don.getDonorId()),
+                    childNames.getOrDefault(don.getChildId(), "Child #" + don.getChildId()),
+                    String.format("\u09F3%,.0f", don.getAmount()),
+                    don.getDate() != null ? don.getDate() : "",
+                    don.getPurpose() != null ? don.getPurpose() : ""
+            };
+            for (int c = 0; c < rowData.length; c++) {
+                Label cell = new Label(rowData[c]);
                 cell.setFont(Font.font("Segoe UI", 13));
+                cell.setTextFill(Color.web(TEXT()));
                 cell.setPadding(new Insets(8, 12, 8, 12));
                 cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
                 if (c == 2) {
@@ -1471,7 +1566,14 @@ public class AdminController {
         return scp;
     }
 
-    private ScrollPane buildChildProfileDetailView(String id, String name) {
+    private ScrollPane buildChildProfileDetailView(int childId) {
+        Child child = childService.getChildById(childId);
+        if (child == null) {
+            VBox err = new VBox(new Label("Child not found."));
+            err.setPadding(new Insets(24));
+            return wrapScroll(err);
+        }
+        String name = child.getName();
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
@@ -1481,6 +1583,7 @@ public class AdminController {
 
         Label title = new Label("Child Profile: " + name);
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
 
         VBox card = new VBox(20);
         card.setPadding(new Insets(24));
@@ -1489,33 +1592,38 @@ public class AdminController {
 
         HBox hdr = new HBox(20);
         hdr.setAlignment(Pos.CENTER_LEFT);
-        StackPane avatar = new StackPane(new Label(name.substring(0, 1)));
+        Label avatarLetter = new Label(name.substring(0, 1));
+        avatarLetter.setTextFill(Color.web(PRIMARY));
+        avatarLetter.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+        StackPane avatar = new StackPane(avatarLetter);
         avatar.setPrefSize(64, 64);
         avatar.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-background-radius: 32;");
 
         VBox info = new VBox(4);
         Label n = new Label(name);
         n.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-        Label i = new Label("ID: " + id);
-        i.setTextFill(Color.web(MUTED_FG()));
-        info.getChildren().addAll(n, i);
+        n.setTextFill(Color.web(TEXT()));
+        Label idLabel = new Label("ID: CH-" + (1000 + child.getId()));
+        idLabel.setTextFill(Color.web(MUTED_FG()));
+        info.getChildren().addAll(n, idLabel);
         hdr.getChildren().addAll(avatar, info);
 
         GridPane details = new GridPane();
         details.setHgap(40);
         details.setVgap(15);
         String[][] data = {
-                { "Age", "10 years" },
-                { "Gender", "Male" },
-                { "Location", "Dhaka Center" },
-                { "Assigned Caregiver", "Dr. Michael Chen" },
-                { "Sponsorship Status", "Fully Sponsored" }
+                { "Age", child.getAge() + " years" },
+                { "Gender", child.getGender() != null ? child.getGender() : "N/A" },
+                { "Organization", child.getOrganization() != null ? child.getOrganization() : "N/A" },
+                { "Date of Birth", child.getDateOfBirth() != null ? child.getDateOfBirth() : "N/A" },
+                { "Status", child.getStatus() != null ? child.getStatus() : "Active" }
         };
         for (int r = 0; r < data.length; r++) {
             Label l = new Label(data[r][0]);
             l.setTextFill(Color.web(MUTED_FG()));
             Label v = new Label(data[r][1]);
             v.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+            v.setTextFill(Color.web(TEXT()));
             details.add(l, 0, r);
             details.add(v, 1, r);
         }
@@ -1527,21 +1635,33 @@ public class AdminController {
 
         Label adminLabel = new Label("Administrative Controls");
         adminLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        adminLabel.setTextFill(Color.web(TEXT()));
 
         HBox actionButtons = new HBox(12);
         Button editBtn = new Button("\u270E Edit Profile");
-        Button medBtn = new Button("\uD83D\uDCA9 Medical Records");
-        Button eduBtn = new Button("\uD83D\uDCDA Education Records");
         Button delBtn = new Button("\u2716 Delete Profile");
 
         String btnStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-radius: 4; -fx-padding: 8 16; -fx-cursor: hand; -fx-text-fill: " + TEXT() + ";";
         editBtn.setStyle(btnStyle);
-        medBtn.setStyle(btnStyle);
-        eduBtn.setStyle(btnStyle);
+        editBtn.setOnAction(e -> root.setCenter(buildEditChildForm(childId)));
         delBtn.setStyle(btnStyle + "-fx-text-fill: " + DESTRUCTIVE + ";");
+        delBtn.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Are you sure you want to delete " + name + "?",
+                    ButtonType.YES, ButtonType.NO);
+            confirm.showAndWait().ifPresent(bt -> {
+                if (bt == ButtonType.YES) {
+                    childService.deleteChild(childId);
+                    systemLogService.save(new SystemLog("Data Update",
+                            "Deleted child profile: " + name, user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                    root.setCenter(buildChildrenPage());
+                }
+            });
+        });
 
-        actionButtons.getChildren().addAll(editBtn, medBtn, eduBtn, delBtn);
+        actionButtons.getChildren().addAll(editBtn, delBtn);
         adminActions.getChildren().addAll(adminLabel, actionButtons);
 
         card.getChildren().addAll(hdr, new Separator(), details, adminActions);
@@ -1594,6 +1714,178 @@ public class AdminController {
         card.getChildren().addAll(typeLabel, title, desc, new Separator(), details, resolve);
         page.getChildren().addAll(backBtn, card);
         return wrapScroll(page);
+    }
+
+    // ═══════════ ADD CHILD FORM ═══════════
+    private ScrollPane buildAddChildForm() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Profiles");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildChildrenPage()));
+
+        Label title = new Label("Add New Child");
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
+
+        VBox form = new VBox(16);
+        form.setPadding(new Insets(24));
+        form.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        TextField nameField = new TextField();
+        nameField.setPromptText("Full Name");
+        TextField ageField = new TextField();
+        ageField.setPromptText("Age");
+        ComboBox<String> genderBox = new ComboBox<>();
+        genderBox.getItems().addAll("Male", "Female");
+        genderBox.setPromptText("Gender");
+        TextField orgField = new TextField();
+        orgField.setPromptText("Organization");
+        TextField dobField = new TextField();
+        dobField.setPromptText("Date of Birth (YYYY-MM-DD)");
+
+        String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
+                + TEXT() + ";";
+        nameField.setStyle(fieldStyle);
+        ageField.setStyle(fieldStyle);
+        orgField.setStyle(fieldStyle);
+        dobField.setStyle(fieldStyle);
+
+        Button saveBtn = new Button("Save Child");
+        saveBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 13px; -fx-cursor: hand; -fx-font-weight: bold;");
+        saveBtn.setOnAction(e -> {
+            String name = nameField.getText().trim();
+            String ageText = ageField.getText().trim();
+            if (name.isEmpty() || ageText.isEmpty()) {
+                new Alert(Alert.AlertType.WARNING, "Name and Age are required.").show();
+                return;
+            }
+            int age;
+            try {
+                age = Integer.parseInt(ageText);
+            } catch (NumberFormatException ex) {
+                new Alert(Alert.AlertType.WARNING, "Age must be a number.").show();
+                return;
+            }
+            Child child = new Child(name, age, orgField.getText().trim(),
+                    genderBox.getValue(), dobField.getText().trim(), "Active");
+            childService.addChild(child);
+            systemLogService.save(new SystemLog("Data Update",
+                    "Added new child: " + name, user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            root.setCenter(buildChildrenPage());
+        });
+
+        form.getChildren().addAll(
+                formRow("Name", nameField), formRow("Age", ageField),
+                formRow("Gender", genderBox), formRow("Organization", orgField),
+                formRow("Date of Birth", dobField), saveBtn);
+
+        page.getChildren().addAll(backBtn, title, form);
+        return wrapScroll(page);
+    }
+
+    // ═══════════ EDIT CHILD FORM ═══════════
+    private ScrollPane buildEditChildForm(int childId) {
+        Child child = childService.getChildById(childId);
+        if (child == null) {
+            VBox err = new VBox(new Label("Child not found."));
+            err.setPadding(new Insets(24));
+            return wrapScroll(err);
+        }
+
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Profile");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildChildProfileDetailView(childId)));
+
+        Label title = new Label("Edit Child: " + child.getName());
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
+
+        VBox form = new VBox(16);
+        form.setPadding(new Insets(24));
+        form.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        TextField nameField = new TextField(child.getName());
+        TextField ageField = new TextField(String.valueOf(child.getAge()));
+        ComboBox<String> genderBox = new ComboBox<>();
+        genderBox.getItems().addAll("Male", "Female");
+        genderBox.setValue(child.getGender());
+        TextField orgField = new TextField(child.getOrganization() != null ? child.getOrganization() : "");
+        TextField dobField = new TextField(child.getDateOfBirth() != null ? child.getDateOfBirth() : "");
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll("Active", "Pending", "Inactive");
+        statusBox.setValue(child.getStatus() != null ? child.getStatus() : "Active");
+
+        String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
+                + TEXT() + ";";
+        nameField.setStyle(fieldStyle);
+        ageField.setStyle(fieldStyle);
+        orgField.setStyle(fieldStyle);
+        dobField.setStyle(fieldStyle);
+
+        Button saveBtn = new Button("Update Child");
+        saveBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 13px; -fx-cursor: hand; -fx-font-weight: bold;");
+        saveBtn.setOnAction(e -> {
+            String name = nameField.getText().trim();
+            String ageText = ageField.getText().trim();
+            if (name.isEmpty() || ageText.isEmpty()) {
+                new Alert(Alert.AlertType.WARNING, "Name and Age are required.").show();
+                return;
+            }
+            int age;
+            try {
+                age = Integer.parseInt(ageText);
+            } catch (NumberFormatException ex) {
+                new Alert(Alert.AlertType.WARNING, "Age must be a number.").show();
+                return;
+            }
+            child.setName(name);
+            child.setAge(age);
+            child.setGender(genderBox.getValue());
+            child.setOrganization(orgField.getText().trim());
+            child.setDateOfBirth(dobField.getText().trim());
+            child.setStatus(statusBox.getValue());
+            childService.updateChild(child);
+            systemLogService.save(new SystemLog("Data Update",
+                    "Updated child profile: " + name, user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            root.setCenter(buildChildProfileDetailView(childId));
+        });
+
+        form.getChildren().addAll(
+                formRow("Name", nameField), formRow("Age", ageField),
+                formRow("Gender", genderBox), formRow("Organization", orgField),
+                formRow("Date of Birth", dobField), formRow("Status", statusBox), saveBtn);
+
+        page.getChildren().addAll(backBtn, title, form);
+        return wrapScroll(page);
+    }
+
+    private HBox formRow(String label, Node field) {
+        HBox row = new HBox(12);
+        row.setAlignment(Pos.CENTER_LEFT);
+        Label l = new Label(label);
+        l.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        l.setTextFill(Color.web(TEXT()));
+        l.setPrefWidth(120);
+        HBox.setHgrow(field instanceof Region ? (Region) field : new Region(), Priority.ALWAYS);
+        if (field instanceof TextField tf)
+            tf.setMaxWidth(Double.MAX_VALUE);
+        if (field instanceof ComboBox<?> cb)
+            cb.setMaxWidth(Double.MAX_VALUE);
+        row.getChildren().addAll(l, field);
+        return row;
     }
 
     private ScrollPane wrapScroll(VBox page) {

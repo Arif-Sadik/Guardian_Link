@@ -10,8 +10,19 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import model.entity.Child;
+import model.entity.Donation;
+import model.entity.SystemLog;
 import model.user.User;
+import service.ChildService;
+import service.DonationService;
+import service.SystemLogService;
 import util.ThemeManager;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /**
  * Donor dashboard — Figma-matched.
@@ -24,6 +35,10 @@ public class DonorController {
     private BorderPane root;
     private VBox sidebar;
     private String activePage = "dashboard";
+
+    private final ChildService childService = new ChildService();
+    private final DonationService donationService = new DonationService();
+    private final SystemLogService systemLogService = new SystemLogService();
 
     private static final String PRIMARY = ThemeManager.PRIMARY;
     private static final String SECONDARY = ThemeManager.SECONDARY;
@@ -299,6 +314,13 @@ public class DonorController {
         return card;
     }
 
+    private void showAlert(String t, String msg) {
+        Alert a = new Alert(Alert.AlertType.INFORMATION);
+        a.setTitle(t);
+        a.setContentText(msg);
+        a.showAndWait();
+    }
+
     // ═══════════ DASHBOARD PAGE ═══════════
     private ScrollPane buildDashboardPage() {
         VBox page = new VBox(20);
@@ -310,23 +332,22 @@ public class DonorController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        List<Child> allChildren = childService.getAllChildren();
+        List<Donation> allDonations = donationService.getAll();
+        double totalDonated = allDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Sponsored Children", "3", "Active sponsorships", PRIMARY),
-                statCard("Total Donated", "৳456,000", "Since Jan 2024", SECONDARY),
-                statCard("This Month", "৳38,000", "+15% from last month", SECONDARY),
+                statCard("Sponsored Children", String.valueOf(allChildren.size()), "Active sponsorships", PRIMARY),
+                statCard("Total Donated", String.format("\u09F3%,.0f", totalDonated), "All time", SECONDARY),
+                statCard("Donations", String.valueOf(allDonations.size()), "Total records", SECONDARY),
                 statCard("Impact Score", "92", "Excellent rating", SECONDARY));
 
         // Sponsored Children cards
         Label scTitle = new Label("Your Sponsored Children");
         scTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        scTitle.setTextFill(Color.web(TEXT()));
         HBox childCards = new HBox(16);
-        String[][] children = {
-                { "TR", "Tahmid Rahman", "10 years", "Dhaka, Bangladesh", "৳48,000" },
-                { "MH", "Mugdho Hossain", "8 years", "Chittagong, Bangladesh", "৳66,000" },
-                { "SA", "Sokina Akter", "12 years", "Sylhet, Bangladesh", "৳40,000" },
-        };
-        for (String[] c : children) {
+        for (Child ch : allChildren) {
             VBox card = new VBox(12);
             card.setPadding(new Insets(20));
             card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
@@ -336,24 +357,29 @@ public class DonorController {
             StackPane avatar = new StackPane();
             avatar.setPrefSize(56, 56);
             avatar.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-background-radius: 28;");
-            Label initials = new Label(c[0]);
+            String initStr = ch.getName().length() >= 2 ? ch.getName().substring(0, 2).toUpperCase()
+                    : ch.getName().toUpperCase();
+            Label initials = new Label(initStr);
             initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
             initials.setTextFill(Color.web(PRIMARY));
             avatar.getChildren().add(initials);
 
-            Label name = new Label(c[1]);
+            Label name = new Label(ch.getName());
             name.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
-            Label age = new Label(c[2] + " \u2022 " + c[3]);
+            name.setTextFill(Color.web(TEXT()));
+            Label age = new Label(
+                    ch.getAge() + " years \u2022 " + (ch.getOrganization() != null ? ch.getOrganization() : "N/A"));
             age.setFont(Font.font("Segoe UI", 11));
             age.setTextFill(Color.web(MUTED_FG()));
 
+            double childTotal = donationService.getTotalByChildId(ch.getId());
             HBox walletRow = new HBox();
-            Label wl = new Label("Wallet Balance:");
+            Label wl = new Label("Total Received:");
             wl.setFont(Font.font("Segoe UI", 11));
             wl.setTextFill(Color.web(MUTED_FG()));
             Region sp2 = new Region();
             HBox.setHgrow(sp2, Priority.ALWAYS);
-            Label wv = new Label(c[4]);
+            Label wv = new Label(String.format("\u09F3%,.0f", childTotal));
             wv.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
             wv.setTextFill(Color.web(SECONDARY));
             walletRow.getChildren().addAll(wl, sp2, wv);
@@ -362,7 +388,9 @@ public class DonorController {
             viewBtn.setMaxWidth(Double.MAX_VALUE);
             viewBtn.setStyle("-fx-background-color: " + PRIMARY
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 0; -fx-font-size: 12px; -fx-cursor: hand;");
-            final String[] finalC = c;
+            final String[] finalC = { String.valueOf(ch.getId()), ch.getName(), String.valueOf(ch.getAge()),
+                    ch.getGender() != null ? ch.getGender() : "N/A",
+                    ch.getOrganization() != null ? ch.getOrganization() : "N/A" };
             viewBtn.setOnAction(e -> root.setCenter(buildChildDetailView(finalC)));
 
             card.getChildren().addAll(avatar, name, age, walletRow, viewBtn);
@@ -378,6 +406,7 @@ public class DonorController {
         donHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
         Label donTitle = new Label("Recent Donations");
         donTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        donTitle.setTextFill(Color.web(TEXT()));
         Region dsp = new Region();
         HBox.setHgrow(dsp, Priority.ALWAYS);
         Hyperlink viewAll = new Hyperlink("View All");
@@ -400,16 +429,18 @@ public class DonorController {
             h.setStyle("-fx-background-color: " + MUTED() + ";");
             grid.add(h, i, 0);
         }
-        String[][] rows = {
-                { "Jan 20, 2026", "Tahmid Rahman", "$150", "Education", "Completed" },
-                { "Jan 20, 2026", "Mugdho Hossain", "$200", "Medical", "Completed" },
-                { "Jan 15, 2026", "Sokina Akter", "$180", "General Welfare", "Completed" },
-                { "Jan 5, 2026", "Tahmid Rahman", "$150", "Food & Nutrition", "Completed" },
-        };
-        for (int r = 0; r < rows.length; r++) {
-            for (int c = 0; c < rows[r].length; c++) {
+        List<Donation> recentDons = allDonations.size() > 5 ? allDonations.subList(0, 5) : allDonations;
+        for (int r = 0; r < recentDons.size(); r++) {
+            Donation don = recentDons.get(r);
+            Child donChild = childService.getChildById(don.getChildId());
+            String childName = donChild != null ? donChild.getName() : "Child #" + don.getChildId();
+            String[] rowData = { don.getDate() != null ? don.getDate() : "", childName,
+                    String.format("\u09F3%,.0f", don.getAmount()),
+                    don.getPurpose() != null ? don.getPurpose() : "",
+                    don.getStatus() != null ? don.getStatus() : "Completed" };
+            for (int c = 0; c < rowData.length; c++) {
                 if (c == 4) {
-                    Label badge = new Label(rows[r][c]);
+                    Label badge = new Label(rowData[c]);
                     badge.setFont(Font.font("Segoe UI", 11));
                     badge.setStyle("-fx-background-color: " + SECONDARY + "1A; -fx-text-fill: " + SECONDARY
                             + "; -fx-background-radius: 4; -fx-padding: 2 8;");
@@ -419,7 +450,7 @@ public class DonorController {
                     grid.add(w, c, r + 1);
                     continue;
                 }
-                Label cell = new Label(rows[r][c]);
+                Label cell = new Label(rowData[c]);
                 cell.setFont(Font.font("Segoe UI", 13));
                 if (c == 0) {
                     cell.setFont(Font.font("Segoe UI", 12));
@@ -456,17 +487,23 @@ public class DonorController {
         Label selLabel = new Label("Select Child");
         selLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         ComboBox<String> selCombo = new ComboBox<>();
-        selCombo.getItems().addAll("Tahmid Rahman (CH-1024)", "Mugdho Hossain (CH-1025)", "Sokina Akter (CH-1026)");
-        selCombo.setValue("Tahmid Rahman (CH-1024)");
+        List<Child> spChildren = childService.getAllChildren();
+        for (Child ch : spChildren) {
+            selCombo.getItems().add(ch.getName() + " (CH-" + (1000 + ch.getId()) + ")");
+        }
+        if (!selCombo.getItems().isEmpty())
+            selCombo.setValue(selCombo.getItems().get(0));
         selCombo.setPrefWidth(320);
         selBox.getChildren().addAll(selLabel, selCombo);
 
+        List<Donation> spDonations = donationService.getAll();
+        double spTotal = spDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Current Balance", "$450", "Available funds", SECONDARY),
-                statCard("Total Received", "$2,850", "All time", MUTED_FG()),
-                statCard("Total Spent", "$2,400", "All time", MUTED_FG()),
-                statCard("Active Sponsor", "You", "Since Jan 2024", MUTED_FG()));
+                statCard("Total Received", String.format("\u09F3%,.0f", spTotal), "All time", SECONDARY),
+                statCard("Total Donations", String.valueOf(spDonations.size()), "Records", MUTED_FG()),
+                statCard("Children Covered", String.valueOf(spChildren.size()), "Sponsored", MUTED_FG()),
+                statCard("Active Sponsor", "You", "Since joining", MUTED_FG()));
 
         // Fund Utilization
         VBox fundCard = new VBox(16);
@@ -478,11 +515,11 @@ public class DonorController {
         fundCard.getChildren().add(fundTitle);
 
         String[][] funds = {
-                { "Education", "$1,200", "50", "#2563eb" },
-                { "Medical Care", "$600", "25", "#16a34a" },
-                { "Food & Nutrition", "$360", "15", "#f59e0b" },
-                { "Clothing", "$180", "7.5", "#8b5cf6" },
-                { "Other", "$60", "2.5", "#ec4899" },
+                { "Education", String.format("\u09F3%,.0f", spTotal * 0.50), "50", "#2563eb" },
+                { "Medical Care", String.format("\u09F3%,.0f", spTotal * 0.25), "25", "#16a34a" },
+                { "Food & Nutrition", String.format("\u09F3%,.0f", spTotal * 0.15), "15", "#f59e0b" },
+                { "Clothing", String.format("\u09F3%,.0f", spTotal * 0.075), "7.5", "#8b5cf6" },
+                { "Other", String.format("\u09F3%,.0f", spTotal * 0.025), "2.5", "#ec4899" },
         };
         for (String[] f : funds) {
             VBox row = new VBox(4);
@@ -530,12 +567,15 @@ public class DonorController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        List<Donation> donDonations = donationService.getAll();
+        double donTotal = donDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Donated", "$4,250", "All time", SECONDARY),
-                statCard("This Month", "$350", "+15% from last month", SECONDARY),
-                statCard("Transactions", "28", "Total donations", MUTED_FG()),
-                statCard("Children Helped", "3", "Active sponsorships", PRIMARY));
+                statCard("Total Donated", String.format("\u09F3%,.0f", donTotal), "All time", SECONDARY),
+                statCard("Donations", String.valueOf(donDonations.size()), "Total records", SECONDARY),
+                statCard("Transactions", String.valueOf(donDonations.size()), "Total donations", MUTED_FG()),
+                statCard("Children Helped", String.valueOf(childService.getAllChildren().size()), "Active sponsorships",
+                        PRIMARY));
 
         // Transaction table
         VBox tableCard = new VBox(0);
@@ -564,16 +604,14 @@ public class DonorController {
             h.setStyle("-fx-background-color: " + MUTED() + ";");
             grid.add(h, i, 0);
         }
-        String[][] rows = {
-                { "Jan 20, 2026", "Tahmid Rahman", "$150", "Education", "Completed" },
-                { "Jan 20, 2026", "Mugdho Hossain", "$200", "Medical", "Completed" },
-                { "Jan 15, 2026", "Sokina Akter", "$180", "General Welfare", "Completed" },
-                { "Jan 5, 2026", "Tahmid Rahman", "$150", "Food & Nutrition", "Completed" },
-                { "Dec 20, 2025", "Mugdho Hossain", "$150", "Education", "Completed" },
-                { "Dec 5, 2025", "Sokina Akter", "$150", "Clothing", "Completed" },
-                { "Nov 20, 2025", "Tahmid Rahman", "$150", "Education", "Completed" },
-                { "Nov 5, 2025", "Mugdho Hossain", "$150", "Medical", "Completed" },
-        };
+        String[][] rows = donDonations.stream().map(don -> {
+            Child donChild = childService.getChildById(don.getChildId());
+            String cName = donChild != null ? donChild.getName() : "Child #" + don.getChildId();
+            return new String[] { don.getDate() != null ? don.getDate() : "", cName,
+                    String.format("\u09F3%,.0f", don.getAmount()),
+                    don.getPurpose() != null ? don.getPurpose() : "",
+                    don.getStatus() != null ? don.getStatus() : "Completed" };
+        }).toArray(String[][]::new);
         for (int r = 0; r < rows.length; r++) {
             for (int c = 0; c < rows[r].length; c++) {
                 if (c == 4) {
@@ -658,22 +696,38 @@ public class DonorController {
         Button genBtn = new Button("Generate Report");
         genBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        genBtn.setOnAction(e -> {
+            systemLogService.save(new SystemLog("Report", "Generated " + rtCombo.getValue(), user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Report Generated", rtCombo.getValue() + " has been generated successfully.");
+        });
         Button pdfBtn = new Button("Export to PDF");
         pdfBtn.setStyle("-fx-background-color: " + MUTED()
                 + "; -fx-text-fill: #1a1a1a; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand; -fx-border-color: "
                 + BORDER() + "; -fx-border-width: 1; -fx-border-radius: 4;");
+        pdfBtn.setOnAction(e -> {
+            systemLogService
+                    .save(new SystemLog("Export", "Exported " + rtCombo.getValue() + " to PDF", user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Export Complete", "Report exported to PDF successfully.");
+        });
         buttons.getChildren().addAll(genBtn, pdfBtn);
 
         genCard.getChildren().addAll(genTitle, row1, buttons);
 
+        Label qStats_title = new Label("Report Statistics");
+        qStats_title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        qStats_title.setTextFill(Color.web(TEXT()));
+        List<Donation> rpDonations = donationService.getAll();
+        double rpTotal = rpDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox qStats = new HBox(16);
         qStats.getChildren().addAll(
-                statCard("Reports Generated", "12", "All time", MUTED_FG()),
-                statCard("Last Generated", "Jan 20", "Donation Summary", MUTED_FG()),
-                statCard("Tax Receipts", "3", "Available for download", PRIMARY),
+                statCard("Total Donated", String.format("\u09F3%,.0f", rpTotal), "All time", SECONDARY),
+                statCard("Donations", String.valueOf(rpDonations.size()), "Records", MUTED_FG()),
+                statCard("Children Helped", String.valueOf(childService.getAllChildren().size()), "Active", PRIMARY),
                 statCard("Impact Score", "92", "Excellent", SECONDARY));
 
-        page.getChildren().addAll(new VBox(4, title, sub), genCard, qStats);
+        page.getChildren().addAll(new VBox(4, title, sub), genCard, qStats_title, qStats);
         return wrapScroll(page);
     }
 
@@ -694,7 +748,7 @@ public class DonorController {
         form.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        Label amtLabel = new Label("Donation Amount ($)");
+        Label amtLabel = new Label("Donation Amount (\u09F3)");
         amtLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
         TextField amtField = new TextField();
         amtField.setPromptText("e.g. 100");
@@ -713,7 +767,27 @@ public class DonorController {
         submit.setMaxWidth(Double.MAX_VALUE);
         submit.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 12; -fx-font-weight: bold; -fx-cursor: hand;");
-        submit.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+        submit.setOnAction(e -> {
+            String amtText = amtField.getText().trim();
+            if (amtText.isEmpty()) {
+                showAlert("Warning", "Amount is required.");
+                return;
+            }
+            double amount;
+            try {
+                amount = Double.parseDouble(amtText);
+            } catch (NumberFormatException ex) {
+                showAlert("Warning", "Amount must be a number.");
+                return;
+            }
+            Donation d = new Donation(user.getId(), 0, amount, "General Welfare", LocalDate.now().toString());
+            donationService.save(d);
+            systemLogService
+                    .save(new SystemLog("Donation", "Submitted donation of \u09F3" + amtText, user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Success", "Donation submitted successfully!");
+            root.setCenter(buildSponsorshipPage());
+        });
 
         form.getChildren().addAll(amtLabel, amtField, msgLabel, msgArea, submit);
         page.getChildren().addAll(backBtn, title, form);

@@ -74,6 +74,46 @@ public class ChildRepository {
     }
 
     /**
+     * Updates an existing child record.
+     */
+    public boolean updateChild(Child child) {
+        String sql = "UPDATE children SET name = ?, age = ?, organization = ?, gender = ?, date_of_birth = ?, status = ? WHERE id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setString(1, child.getName());
+            ps.setInt(2, child.getAge());
+            ps.setString(3, child.getOrganization());
+            ps.setString(4, child.getGender());
+            ps.setString(5, child.getDateOfBirth());
+            ps.setString(6, child.getStatus());
+            ps.setInt(7, child.getId());
+            int rows = ps.executeUpdate();
+            ps.close();
+            return rows > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Deletes a child by ID.
+     */
+    public boolean deleteChild(int id) {
+        String sql = "DELETE FROM children WHERE id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setInt(1, id);
+            int rows = ps.executeUpdate();
+            ps.close();
+            return rows > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
      * Maps a ResultSet row to a Child object.
      */
     private Child mapRow(ResultSet rs) throws SQLException {

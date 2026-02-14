@@ -92,6 +92,17 @@ public class DBUtil {
                     """);
 
             stmt.execute("""
+                        CREATE TABLE IF NOT EXISTS expenses (
+                            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                            child_id    INTEGER,
+                            category    TEXT,
+                            amount      REAL,
+                            description TEXT,
+                            date        TEXT
+                        )
+                    """);
+
+            stmt.execute("""
                         CREATE TABLE IF NOT EXISTS system_logs (
                             id          INTEGER PRIMARY KEY AUTOINCREMENT,
                             event_type  TEXT,

@@ -32,4 +32,18 @@ public class ChildService {
     public Child getChildById(int id) {
         return childRepository.findById(id);
     }
+
+    /**
+     * Updates an existing child.
+     */
+    public boolean updateChild(Child child) {
+        return childRepository.updateChild(child);
+    }
+
+    /**
+     * Deletes a child by ID.
+     */
+    public boolean deleteChild(int id) {
+        return childRepository.deleteChild(id);
+    }
 }

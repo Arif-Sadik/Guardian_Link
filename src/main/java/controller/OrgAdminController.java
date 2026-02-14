@@ -11,11 +11,16 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import model.entity.Child;
+import model.entity.Donation;
+import model.entity.SystemLog;
 import model.user.User;
 import service.ChildService;
+import service.DonationService;
+import service.SystemLogService;
 import util.ThemeManager;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -32,6 +37,10 @@ public class OrgAdminController {
     private String activePage = "dashboard";
 
     private final ChildService childService = new ChildService();
+    private final DonationService donationService = new DonationService();
+    private final SystemLogService systemLogService = new SystemLogService();
+
+    private Child selectedChild; // currently selected child for profile tabs
 
     private static final String PRIMARY = ThemeManager.PRIMARY;
     private static final String SECONDARY = ThemeManager.SECONDARY;
@@ -623,12 +632,14 @@ public class OrgAdminController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        int totalChildren = childService.getAllChildren().size();
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Children", "248", "+12 this month", SECONDARY),
-                statCard("Active Cases", "45", "Currently monitored", PRIMARY),
-                statCard("Pending Alerts", "8", "Requires attention", WARNING),
-                statCard("Appointments", "12", "This week", MUTED_FG()));
+                statCard("Total Children", String.valueOf(totalChildren), "+" + totalChildren + " registered",
+                        SECONDARY),
+                statCard("Active Cases", String.valueOf(totalChildren), "Currently monitored", PRIMARY),
+                statCard("Pending Alerts", "0", "Requires attention", WARNING),
+                statCard("System Logs", String.valueOf(systemLogService.getCount()), "Total entries", MUTED_FG()));
 
         // Quick Actions
         Label qaTitle = new Label("Quick Actions");
@@ -728,9 +739,20 @@ public class OrgAdminController {
 
         Label title = new Label("Child Profile Management");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
         Label sub = new Label("View and update child information");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
+
+        // Select first child from DB if none selected
+        List<Child> allChildren = childService.getAllChildren();
+        if (selectedChild == null && !allChildren.isEmpty()) {
+            selectedChild = allChildren.get(0);
+        }
+        if (selectedChild == null) {
+            page.getChildren().addAll(new VBox(4, title, sub), new Label("No children in database."));
+            return wrapScroll(page);
+        }
 
         // Profile header
         VBox profileHeader = new VBox(8);
@@ -743,28 +765,40 @@ public class OrgAdminController {
         StackPane avatar = new StackPane();
         avatar.setPrefSize(80, 80);
         avatar.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-background-radius: 40;");
-        Label initials = new Label("TR");
+        String initStr = selectedChild.getName().length() >= 2
+                ? selectedChild.getName().substring(0, 2).toUpperCase()
+                : selectedChild.getName().toUpperCase();
+        Label initials = new Label(initStr);
         initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
         initials.setTextFill(Color.web(PRIMARY));
         avatar.getChildren().add(initials);
 
         VBox info = new VBox(4);
         HBox.setHgrow(info, Priority.ALWAYS);
-        Label name = new Label("Tahmid Rahman");
+        Label name = new Label(selectedChild.getName());
         name.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
-        Label cid = new Label("Child ID: CH-1024");
+        name.setTextFill(Color.web(TEXT()));
+        Label cid = new Label("Child ID: CH-" + (1000 + selectedChild.getId()));
         cid.setFont(Font.font("Segoe UI", 12));
         cid.setTextFill(Color.web(MUTED_FG()));
         HBox meta = new HBox(16);
         meta.getChildren().addAll(
-                metaLabel("Age:", "10 years"),
-                metaLabel("Location:", "Dhaka, Bangladesh"),
-                statusBadge("Active"));
+                metaLabel("Age:", selectedChild.getAge() + " years"),
+                metaLabel("Organization:",
+                        selectedChild.getOrganization() != null ? selectedChild.getOrganization() : "N/A"),
+                statusBadge(selectedChild.getStatus() != null ? selectedChild.getStatus() : "Active"));
         info.getChildren().addAll(name, cid, meta);
 
         Button saveBtn = new Button("\uD83D\uDCBE  Save Changes");
         saveBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        saveBtn.setOnAction(e -> {
+            childService.updateChild(selectedChild);
+            systemLogService.save(new SystemLog("Data Update",
+                    "Updated child profile: " + selectedChild.getName(), user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Success", "Child profile saved successfully.");
+        });
 
         phRow.getChildren().addAll(avatar, info, saveBtn);
         profileHeader.getChildren().add(phRow);
@@ -812,14 +846,23 @@ public class OrgAdminController {
     private VBox buildPersonalTab() {
         VBox box = new VBox(16);
         box.setPadding(new Insets(24));
+        String childName = selectedChild != null ? selectedChild.getName() : "";
+        String dob = selectedChild != null && selectedChild.getDateOfBirth() != null ? selectedChild.getDateOfBirth()
+                : "";
+        String gender = selectedChild != null && selectedChild.getGender() != null ? selectedChild.getGender() : "";
+        String org = selectedChild != null && selectedChild.getOrganization() != null ? selectedChild.getOrganization()
+                : "";
         HBox r1 = new HBox(24);
-        r1.getChildren().addAll(formField("Full Name", "Tahmid Rahman"), formField("Date of Birth", "2015-03-15"));
+        r1.getChildren().addAll(formField("Full Name", childName), formField("Date of Birth", dob));
         HBox r2 = new HBox(24);
-        r2.getChildren().addAll(formField("Gender", "Male"), formField("Nationality", "Bangladeshi"));
-        VBox addr = formFieldArea("Address", "Motijheel, Dhaka-1000, Bangladesh");
+        r2.getChildren().addAll(formField("Gender", gender), formField("Organization", org));
+        VBox addr = formFieldArea("Address", org);
         HBox r3 = new HBox(24);
-        r3.getChildren().addAll(formField("Guardian Name", "Kamal Rahman"),
-                formField("Guardian Contact", "+880 1712-345678"));
+        r3.getChildren().addAll(
+                formField("Status",
+                        selectedChild != null && selectedChild.getStatus() != null ? selectedChild.getStatus()
+                                : "Active"),
+                formField("Age", selectedChild != null ? String.valueOf(selectedChild.getAge()) : ""));
         box.getChildren().addAll(r1, r2, addr, r3);
         return box;
     }
@@ -991,12 +1034,16 @@ public class OrgAdminController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        List<Donation> allDonations = donationService.getAll();
+        double totalReceived = allDonations.stream().mapToDouble(Donation::getAmount).sum();
+        String totalRecvStr = String.format("\u09F3%,.0f", totalReceived);
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Current Balance", "৳48,000", "Available funds", SECONDARY),
-                statCard("Total Received", "৳304,000", "All time", MUTED_FG()),
-                statCard("Total Spent", "৳256,000", "All time", MUTED_FG()),
-                statCard("Active Sponsor", "Emily Johnson", "Since Jan 2024", MUTED_FG()));
+                statCard("Total Received", totalRecvStr, "All time", SECONDARY),
+                statCard("Total Donations", String.valueOf(allDonations.size()), "Records", MUTED_FG()),
+                statCard("Children Covered", String.valueOf(childService.getAllChildren().size()), "All time",
+                        MUTED_FG()),
+                statCard("System Logs", String.valueOf(systemLogService.getCount()), "Entries", MUTED_FG()));
 
         // Fund Utilization
         VBox fundCard = new VBox(16);
@@ -1182,9 +1229,20 @@ public class OrgAdminController {
         Button genBtn = new Button("Generate Report");
         genBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        genBtn.setOnAction(e -> {
+            systemLogService.save(new SystemLog("Report", "Generated " + rtCombo.getValue(), user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Report Generated", rtCombo.getValue() + " has been generated successfully.");
+        });
         Button csvBtn = new Button("Export to CSV");
         csvBtn.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        csvBtn.setOnAction(e -> {
+            systemLogService
+                    .save(new SystemLog("Export", "Exported " + rtCombo.getValue() + " to CSV", user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Export Complete", "Report has been exported to CSV successfully.");
+        });
         buttons.getChildren().addAll(genBtn, csvBtn);
 
         genCard.getChildren().addAll(genTitle, row1, buttons);
@@ -1284,23 +1342,51 @@ public class OrgAdminController {
 
         Label title = new Label("Record Donation");
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
 
         VBox card = new VBox(20);
         card.setPadding(new Insets(24));
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        Button save = new Button("Save Record");
-        save.setStyle("-fx-background-color: " + SECONDARY + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
-        save.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+        VBox donorField = formField("Donor Name", "");
+        VBox amountField = formField("Amount (\u09F3)", "");
+        VBox purposeField = formField("Purpose", "General Welfare");
 
-        card.getChildren().addAll(
-                formField("Donor Name", ""),
-                formField("Amount (\u09F3)", ""),
-                formField("Purpose", "General Welfare"),
-                new Separator(),
-                save
-        );
+        Button save = new Button("Save Record");
+        save.setStyle("-fx-background-color: " + SECONDARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
+        save.setOnAction(e -> {
+            TextField amtTf = (TextField) amountField.getChildren().get(1);
+            TextField purposeTf = (TextField) purposeField.getChildren().get(1);
+            String amtText = amtTf.getText().trim();
+            if (amtText.isEmpty()) {
+                showAlert("Warning", "Amount is required.");
+                return;
+            }
+            double amount;
+            try {
+                amount = Double.parseDouble(amtText);
+            } catch (NumberFormatException ex) {
+                showAlert("Warning", "Amount must be a number.");
+                return;
+            }
+            Donation d = new Donation();
+            d.setDonorId(user.getId());
+            d.setChildId(selectedChild != null ? selectedChild.getId() : 0);
+            d.setAmount(amount);
+            d.setPurpose(purposeTf.getText().trim());
+            d.setDate(LocalDate.now().toString());
+            d.setStatus("Completed");
+            donationService.save(d);
+            systemLogService.save(new SystemLog("Donation",
+                    "Recorded donation of " + amtText, user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Success", "Donation recorded successfully!");
+            root.setCenter(buildSponsorshipPage());
+        });
+
+        card.getChildren().addAll(donorField, amountField, purposeField, new Separator(), save);
 
         page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);
@@ -1316,23 +1402,45 @@ public class OrgAdminController {
 
         Label title = new Label("Record Expense");
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
 
         VBox card = new VBox(20);
         card.setPadding(new Insets(24));
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        Button save = new Button("Save Record");
-        save.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
-        save.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+        VBox categoryField = formField("Category", "");
+        VBox amountField = formField("Amount (\u09F3)", "");
+        VBox descField = formFieldArea("Description", "");
 
-        card.getChildren().addAll(
-                formField("Category", ""),
-                formField("Amount (\u09F3)", ""),
-                formFieldArea("Description", ""),
-                new Separator(),
-                save
-        );
+        Button save = new Button("Save Record");
+        save.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
+        save.setOnAction(e -> {
+            TextField amtTf = (TextField) amountField.getChildren().get(1);
+            TextField catTf = (TextField) categoryField.getChildren().get(1);
+            TextArea descTa = (TextArea) descField.getChildren().get(1);
+            String amtText = amtTf.getText().trim();
+            if (amtText.isEmpty()) {
+                showAlert("Warning", "Amount is required.");
+                return;
+            }
+            double amount;
+            try {
+                amount = Double.parseDouble(amtText);
+            } catch (NumberFormatException ex) {
+                showAlert("Warning", "Amount must be a number.");
+                return;
+            }
+            systemLogService.save(new SystemLog("Expense",
+                    "Recorded expense: " + catTf.getText().trim() + " - " + amtText,
+                    user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Success", "Expense recorded successfully!");
+            root.setCenter(buildSponsorshipPage());
+        });
+
+        card.getChildren().addAll(categoryField, amountField, descField, new Separator(), save);
 
         page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);
