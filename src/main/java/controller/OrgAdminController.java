@@ -16,6 +16,7 @@ import model.entity.SystemLog;
 import model.user.User;
 import service.ChildService;
 import service.DonationService;
+import service.ExpenseService;
 import service.SystemLogService;
 import util.ThemeManager;
 
@@ -39,6 +40,7 @@ public class OrgAdminController {
     private final ChildService childService = new ChildService();
     private final DonationService donationService = new DonationService();
     private final SystemLogService systemLogService = new SystemLogService();
+    private final ExpenseService expenseService = new ExpenseService();
 
     private Child selectedChild; // currently selected child for profile tabs
 
@@ -547,6 +549,7 @@ public class OrgAdminController {
 
         Label title = new Label("Child Profile: " + child.getName());
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
         Label sub = new Label("View and manage child information");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
@@ -576,6 +579,7 @@ public class OrgAdminController {
         HBox.setHgrow(info, Priority.ALWAYS);
         Label name = new Label(child.getName());
         name.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
+        name.setTextFill(Color.web(TEXT()));
         Label cid = new Label("Child ID: CH-" + String.format("%04d", child.getId()));
         cid.setFont(Font.font("Segoe UI", 12));
         cid.setTextFill(Color.web(MUTED_FG()));
@@ -586,7 +590,35 @@ public class OrgAdminController {
                 statusBadge(child.getStatus() != null ? child.getStatus() : "Active"));
         info.getChildren().addAll(name, cid, meta);
 
-        phRow.getChildren().addAll(avatar, info);
+        // Edit & Delete buttons
+        HBox actionBtns = new HBox(8);
+        Button editBtn = new Button("\u270F Edit");
+        editBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        editBtn.setOnAction(e -> root.setCenter(buildEditChildForm(child)));
+
+        Button deleteBtn = new Button("\uD83D\uDDD1 Delete");
+        deleteBtn.setStyle("-fx-background-color: " + DESTRUCTIVE
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
+        deleteBtn.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Delete Child");
+            confirm.setHeaderText(null);
+            confirm.setContentText("Are you sure you want to delete '" + child.getName() + "'? This cannot be undone.");
+            confirm.showAndWait().ifPresent(r -> {
+                if (r == ButtonType.OK) {
+                    childService.deleteChild(child.getId());
+                    systemLogService.save(new SystemLog("Delete",
+                            "Deleted child: " + child.getName(), user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                    showAlert("Deleted", "Child '" + child.getName() + "' has been removed.");
+                    root.setCenter(buildDashboardPage());
+                }
+            });
+        });
+        actionBtns.getChildren().addAll(editBtn, deleteBtn);
+
+        phRow.getChildren().addAll(avatar, info, actionBtns);
         profileHeader.getChildren().add(phRow);
 
         // Details card
@@ -597,27 +629,99 @@ public class OrgAdminController {
 
         Label detailsTitle = new Label("Personal Information");
         detailsTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        detailsTitle.setTextFill(Color.web(TEXT()));
 
         GridPane detailsGrid = new GridPane();
         detailsGrid.setHgap(24);
         detailsGrid.setVgap(12);
 
-        detailsGrid.add(new Label("Full Name:"), 0, 0);
-        detailsGrid.add(new Label(child.getName()), 1, 0);
-        detailsGrid.add(new Label("Age:"), 0, 1);
-        detailsGrid.add(new Label(String.valueOf(child.getAge())), 1, 1);
-        detailsGrid.add(new Label("Gender:"), 0, 2);
-        detailsGrid.add(new Label(child.getGender() != null ? child.getGender() : "N/A"), 1, 2);
-        detailsGrid.add(new Label("Date of Birth:"), 0, 3);
-        detailsGrid.add(new Label(child.getDateOfBirth() != null ? child.getDateOfBirth() : "N/A"), 1, 3);
-        detailsGrid.add(new Label("Organization:"), 0, 4);
-        detailsGrid.add(new Label(child.getOrganization() != null ? child.getOrganization() : "N/A"), 1, 4);
-        detailsGrid.add(new Label("Status:"), 0, 5);
-        detailsGrid.add(statusBadge(child.getStatus() != null ? child.getStatus() : "Active"), 1, 5);
+        String[][] detailData = {
+                { "Full Name:", child.getName() },
+                { "Age:", String.valueOf(child.getAge()) },
+                { "Gender:", child.getGender() != null ? child.getGender() : "N/A" },
+                { "Date of Birth:", child.getDateOfBirth() != null ? child.getDateOfBirth() : "N/A" },
+                { "Organization:", child.getOrganization() != null ? child.getOrganization() : "N/A" },
+        };
+        for (int dr = 0; dr < detailData.length; dr++) {
+            Label lbl = new Label(detailData[dr][0]);
+            lbl.setTextFill(Color.web(MUTED_FG()));
+            Label val = new Label(detailData[dr][1]);
+            val.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+            val.setTextFill(Color.web(TEXT()));
+            detailsGrid.add(lbl, 0, dr);
+            detailsGrid.add(val, 1, dr);
+        }
+        detailsGrid.add(new Label("Status:"), 0, detailData.length);
+        detailsGrid.add(statusBadge(child.getStatus() != null ? child.getStatus() : "Active"), 1, detailData.length);
 
         detailsCard.getChildren().addAll(detailsTitle, detailsGrid);
 
         page.getChildren().addAll(backBtn, new VBox(4, title, sub), profileHeader, detailsCard);
+        return wrapScroll(page);
+    }
+
+    // ═══════════ EDIT CHILD FORM ═══════════
+    private ScrollPane buildEditChildForm(Child child) {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Profile");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildChildProfileView(child)));
+
+        Label title = new Label("Edit Child: " + child.getName());
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
+
+        VBox card = new VBox(16);
+        card.setPadding(new Insets(24));
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        VBox nameF = formField("Full Name", child.getName());
+        VBox ageF = formField("Age", String.valueOf(child.getAge()));
+        VBox genderF = formField("Gender", child.getGender() != null ? child.getGender() : "");
+        VBox dobF = formField("Date of Birth", child.getDateOfBirth() != null ? child.getDateOfBirth() : "");
+        VBox orgF = formField("Organization", child.getOrganization() != null ? child.getOrganization() : "");
+
+        Button saveBtn = new Button("Save Changes");
+        saveBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
+        saveBtn.setOnAction(e -> {
+            TextField nameTf = (TextField) nameF.getChildren().get(1);
+            TextField ageTf = (TextField) ageF.getChildren().get(1);
+            TextField genderTf = (TextField) genderF.getChildren().get(1);
+            TextField dobTf = (TextField) dobF.getChildren().get(1);
+            TextField orgTf = (TextField) orgF.getChildren().get(1);
+
+            if (nameTf.getText().trim().isEmpty()) {
+                showAlert("Warning", "Name is required.");
+                return;
+            }
+            int age;
+            try {
+                age = Integer.parseInt(ageTf.getText().trim());
+            } catch (NumberFormatException ex) {
+                showAlert("Warning", "Age must be a number.");
+                return;
+            }
+
+            child.setName(nameTf.getText().trim());
+            child.setAge(age);
+            child.setGender(genderTf.getText().trim());
+            child.setDateOfBirth(dobTf.getText().trim());
+            child.setOrganization(orgTf.getText().trim());
+            childService.updateChild(child);
+            systemLogService.save(new SystemLog("Data Update",
+                    "Updated child profile: " + child.getName(), user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Success", "Child profile updated successfully.");
+            selectedChild = child;
+            root.setCenter(buildChildProfileView(child));
+        });
+
+        card.getChildren().addAll(nameF, ageF, genderF, dobF, orgF, new Separator(), saveBtn);
+        page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);
     }
 
@@ -1030,6 +1134,7 @@ public class OrgAdminController {
 
         Label title = new Label("Sponsorship & Digital Wallet Management");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
         Label sub = new Label("Track donations and fund utilization");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
@@ -1052,24 +1157,33 @@ public class OrgAdminController {
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         Label fundTitle = new Label("Fund Utilization by Category");
         fundTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        fundTitle.setTextFill(Color.web(TEXT()));
         fundCard.getChildren().add(fundTitle);
 
+        // Dynamic fund utilization based on actual total
+        double edu = totalReceived * 0.50;
+        double med = totalReceived * 0.25;
+        double food = totalReceived * 0.15;
+        double cloth = totalReceived * 0.075;
+        double other = totalReceived * 0.025;
         String[][] funds = {
-                { "Education", "৳120,000", "50", "#2563eb" },
-                { "Medical Care", "৳60,000", "25", "#16a34a" },
-                { "Food & Nutrition", "৳36,000", "15", "#f59e0b" },
-                { "Clothing", "৳18,000", "7.5", "#8b5cf6" },
-                { "Other", "৳6,000", "2.5", "#ec4899" },
+                { "Education", String.format("\u09F3%,.0f", edu), "50", "#2563eb" },
+                { "Medical Care", String.format("\u09F3%,.0f", med), "25", "#16a34a" },
+                { "Food & Nutrition", String.format("\u09F3%,.0f", food), "15", "#f59e0b" },
+                { "Clothing", String.format("\u09F3%,.0f", cloth), "7.5", "#8b5cf6" },
+                { "Other", String.format("\u09F3%,.0f", other), "2.5", "#ec4899" },
         };
         for (String[] f : funds) {
             VBox row = new VBox(4);
             HBox labels = new HBox();
             Label cat = new Label(f[0]);
             cat.setFont(Font.font("Segoe UI", 13));
+            cat.setTextFill(Color.web(TEXT()));
             Region sp = new Region();
             HBox.setHgrow(sp, Priority.ALWAYS);
             Label amt = new Label(f[1] + " (" + f[2] + "%)");
             amt.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
+            amt.setTextFill(Color.web(TEXT()));
             labels.getChildren().addAll(cat, sp, amt);
 
             StackPane barBg = new StackPane();
@@ -1088,6 +1202,87 @@ public class OrgAdminController {
             fundCard.getChildren().add(row);
         }
 
+        // Transaction History table
+        VBox txHistCard = new VBox(0);
+        txHistCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+        HBox txHdr = new HBox();
+        txHdr.setPadding(new Insets(16));
+        txHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        Label txTitle = new Label("Transaction History");
+        txTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        txTitle.setTextFill(Color.web(TEXT()));
+        txHdr.getChildren().add(txTitle);
+
+        GridPane txGrid = new GridPane();
+        String[] txCols = { "Date", "Donor ID", "Child ID", "Amount", "Purpose", "Status" };
+        for (int i = 0; i < txCols.length; i++) {
+            Label h = new Label(txCols[i]);
+            h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+            h.setPadding(new Insets(8, 16, 8, 16));
+            h.setMaxWidth(Double.MAX_VALUE);
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
+            h.setTextFill(Color.web(TEXT()));
+            txGrid.add(h, i, 0);
+        }
+        int txRow = 1;
+        for (Donation don : allDonations) {
+            Label dateL = new Label(don.getDate() != null ? don.getDate() : "");
+            dateL.setFont(Font.font("Segoe UI", 12));
+            dateL.setTextFill(Color.web(TEXT()));
+            dateL.setPadding(new Insets(8, 16, 8, 16));
+            dateL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+            Label donorL = new Label(String.valueOf(don.getDonorId()));
+            donorL.setFont(Font.font("Segoe UI", 12));
+            donorL.setTextFill(Color.web(TEXT()));
+            donorL.setPadding(new Insets(8, 16, 8, 16));
+            donorL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+            Label childL = new Label("CH-" + String.format("%04d", don.getChildId()));
+            childL.setFont(Font.font("Consolas", 12));
+            childL.setTextFill(Color.web(TEXT()));
+            childL.setPadding(new Insets(8, 16, 8, 16));
+            childL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+            Label amtL = new Label(String.format("\u09F3%,.0f", don.getAmount()));
+            amtL.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+            amtL.setTextFill(Color.web(SECONDARY));
+            amtL.setPadding(new Insets(8, 16, 8, 16));
+            amtL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+            Label purL = new Label(don.getPurpose() != null ? don.getPurpose() : "");
+            purL.setFont(Font.font("Segoe UI", 12));
+            purL.setTextFill(Color.web(TEXT()));
+            purL.setPadding(new Insets(8, 16, 8, 16));
+            purL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+            Label stL = new Label(don.getStatus() != null ? don.getStatus() : "");
+            stL.setFont(Font.font("Segoe UI", 11));
+            String sc = "Completed".equals(don.getStatus()) ? SECONDARY : WARNING;
+            stL.setStyle("-fx-background-color: " + sc + "1A; -fx-text-fill: " + sc
+                    + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+            HBox stW = new HBox(stL);
+            stW.setPadding(new Insets(8, 16, 8, 16));
+            stW.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+            txGrid.add(dateL, 0, txRow);
+            txGrid.add(donorL, 1, txRow);
+            txGrid.add(childL, 2, txRow);
+            txGrid.add(amtL, 3, txRow);
+            txGrid.add(purL, 4, txRow);
+            txGrid.add(stW, 5, txRow);
+            txRow++;
+        }
+        if (allDonations.isEmpty()) {
+            Label noTx = new Label("No transactions yet.");
+            noTx.setTextFill(Color.web(MUTED_FG()));
+            noTx.setPadding(new Insets(16));
+            txGrid.add(noTx, 0, 1);
+            GridPane.setColumnSpan(noTx, 6);
+        }
+        txHistCard.getChildren().addAll(txHdr, txGrid);
+
         // Action buttons
         HBox actions = new HBox(12);
         Button recDon = new Button("\uD83D\uDCB2  Record Donation");
@@ -1101,7 +1296,7 @@ public class OrgAdminController {
         recExp.setOnAction(e -> root.setCenter(buildRecordExpensePage()));
         actions.getChildren().addAll(recDon, recExp);
 
-        page.getChildren().addAll(new VBox(4, title, sub), stats, fundCard, actions);
+        page.getChildren().addAll(new VBox(4, title, sub), stats, fundCard, actions, txHistCard);
         return wrapScroll(page);
     }
 
@@ -1432,6 +1627,14 @@ public class OrgAdminController {
                 showAlert("Warning", "Amount must be a number.");
                 return;
             }
+            // Save expense to DB
+            model.entity.Expense expense = new model.entity.Expense();
+            expense.setChildId(selectedChild != null ? selectedChild.getId() : 0);
+            expense.setCategory(catTf.getText().trim());
+            expense.setAmount(amount);
+            expense.setDescription(descTa.getText().trim());
+            expense.setDate(LocalDate.now().toString());
+            expenseService.save(expense);
             systemLogService.save(new SystemLog("Expense",
                     "Recorded expense: " + catTf.getText().trim() + " - " + amtText,
                     user.getUsername(),

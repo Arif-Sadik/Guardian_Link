@@ -10,12 +10,18 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import model.entity.SystemLog;
 import model.user.User;
+import service.SystemLogService;
 import util.ThemeManager;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+
 /**
- * Support Dashboard.
- * Sidebar pages: Dashboard, Alerts, Reports.
+ * Support staff dashboard.
+ * Sidebar pages: Dashboard, Alerts, Incident Reports.
  */
 public class SupportController {
 
@@ -25,14 +31,15 @@ public class SupportController {
     private VBox sidebar;
     private String activePage = "dashboard";
 
-    // Theme tokens
+    private final SystemLogService systemLogService = new SystemLogService();
+
+    // Theme constants
     private static final String PRIMARY = ThemeManager.PRIMARY;
     private static final String SECONDARY = ThemeManager.SECONDARY;
     private static final String WARNING = ThemeManager.WARNING;
     private static final String DESTRUCTIVE = ThemeManager.DESTRUCTIVE;
     private static final String INFO = ThemeManager.INFO;
 
-    // Theme-aware color getters
     private String BG() {
         return ThemeManager.getBg();
     }
@@ -91,8 +98,8 @@ public class SupportController {
         header.setPadding(new Insets(0, 24, 0, 24));
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPrefHeight(64);
-        header.setStyle(
-                "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        header.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 0 0 1 0;");
 
         Label logoIcon = new Label("\uD83D\uDEE1");
         logoIcon.setFont(Font.font("Segoe UI Emoji", 28));
@@ -103,7 +110,7 @@ public class SupportController {
         Label t1 = new Label("GuardianLink");
         t1.setFont(Font.font("Segoe UI", FontWeight.BOLD, 20));
         t1.setTextFill(Color.web(TEXT()));
-        Label t2 = new Label("Support Center");
+        Label t2 = new Label("Support Portal");
         t2.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
         t2.setTextFill(Color.web(MUTED_FG()));
         titleBox.getChildren().addAll(t1, t2);
@@ -111,23 +118,22 @@ public class SupportController {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox userTypeBox = new HBox(8);
-        userTypeBox.setAlignment(Pos.CENTER_RIGHT);
-        userTypeBox.setPadding(new Insets(8, 16, 8, 16));
-        userTypeBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 8; -fx-border-color: "
+        HBox userBox = new HBox(8);
+        userBox.setAlignment(Pos.CENTER_RIGHT);
+        userBox.setPadding(new Insets(8, 16, 8, 16));
+        userBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 8; -fx-border-color: "
                 + BORDER() + "; -fx-border-radius: 8;");
-
         VBox userInfo = new VBox(2);
         Label uName = new Label(user.getUsername());
         uName.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         uName.setTextFill(Color.web(TEXT()));
-        Label uRole = new Label("Support Agent");
+        Label uRole = new Label("Support Staff");
         uRole.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
         uRole.setTextFill(Color.web(PRIMARY));
         userInfo.getChildren().addAll(uName, uRole);
+        userBox.getChildren().addAll(userInfo);
 
-        userTypeBox.getChildren().addAll(userInfo);
-        header.getChildren().addAll(logoIcon, titleBox, spacer, userTypeBox);
+        header.getChildren().addAll(logoIcon, titleBox, spacer, userBox);
         return header;
     }
 
@@ -135,8 +141,8 @@ public class SupportController {
     private VBox buildSidebar() {
         sidebar = new VBox(4);
         sidebar.setPrefWidth(240);
-        sidebar.setStyle(
-                "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 0 1 0 0;");
+        sidebar.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 0 1 0 0;");
 
         Label navLabel = new Label("Navigation");
         navLabel.setFont(Font.font("Segoe UI", 11));
@@ -148,33 +154,33 @@ public class SupportController {
         navItems.setPadding(new Insets(0, 8, 0, 8));
         navItems.getChildren().addAll(
                 sidebarBtn("Dashboard", "dashboard"),
-                sidebarBtn("Recent Alerts", "alerts"),
+                sidebarBtn("Alerts", "alerts"),
                 sidebarBtn("Incident Reports", "reports"));
         sidebar.getChildren().add(navItems);
 
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        // Theme toggle logic (same as other controllers)
+        // Theme toggle
         VBox themeSection = new VBox(8);
         themeSection.setPadding(new Insets(12, 8, 12, 8));
         themeSection.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 1 0 0 0;");
-
         Label themeLabel = new Label("Theme");
         themeLabel.setFont(Font.font("Segoe UI", 11));
         themeLabel.setTextFill(Color.web(MUTED_FG()));
         themeLabel.setPadding(new Insets(0, 8, 0, 8));
+
         HBox themeToggle = new HBox(8);
         themeToggle.setAlignment(Pos.CENTER_LEFT);
         themeToggle.setPadding(new Insets(0, 8, 0, 8));
         Button lightBtn = new Button("Light");
         Button darkBtn = new Button("Dark");
-        String activeStyle = "-fx-background-color: " + PRIMARY
+        String active = "-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-cursor: hand; -fx-font-size: 11px;";
-        String inactiveStyle = "-fx-background-color: " + MUTED() + "; -fx-text-fill: " + TEXT()
+        String inactive = "-fx-background-color: " + MUTED() + "; -fx-text-fill: " + TEXT()
                 + "; -fx-background-radius: 4; -fx-padding: 6 12; -fx-cursor: hand; -fx-font-size: 11px;";
-        lightBtn.setStyle(ThemeManager.isDarkMode() ? inactiveStyle : activeStyle);
-        darkBtn.setStyle(ThemeManager.isDarkMode() ? activeStyle : inactiveStyle);
+        lightBtn.setStyle(ThemeManager.isDarkMode() ? inactive : active);
+        darkBtn.setStyle(ThemeManager.isDarkMode() ? active : inactive);
         lightBtn.setOnAction(e -> {
             ThemeManager.setDarkMode(false);
             refreshTheme();
@@ -188,7 +194,7 @@ public class SupportController {
 
         // Logout
         VBox logoutSection = new VBox(8);
-        logoutSection.setPadding(new Insets(8, 8, 8, 8));
+        logoutSection.setPadding(new Insets(8));
         Button logoutBtn = new Button("Logout");
         logoutBtn.setMaxWidth(Double.MAX_VALUE);
         logoutBtn.setAlignment(Pos.CENTER_LEFT);
@@ -207,8 +213,7 @@ public class SupportController {
         btn.setMaxWidth(Double.MAX_VALUE);
         btn.setAlignment(Pos.CENTER_LEFT);
         btn.setFont(Font.font("Segoe UI", 13));
-        boolean active = pageId.equals(activePage);
-        styleSidebarBtn(btn, active);
+        styleSidebarBtn(btn, pageId.equals(activePage));
         btn.setOnAction(e -> {
             activePage = pageId;
             refreshSidebar();
@@ -221,8 +226,8 @@ public class SupportController {
         return btn;
     }
 
-    private void styleSidebarBtn(Button btn, boolean active) {
-        if (active)
+    private void styleSidebarBtn(Button btn, boolean isActive) {
+        if (isActive)
             btn.setStyle("-fx-background-color: " + PRIMARY
                     + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
         else
@@ -245,7 +250,7 @@ public class SupportController {
             return "dashboard";
         if (text.contains("Alerts"))
             return "alerts";
-        if (text.contains("Reports"))
+        if (text.contains("Incident") || text.contains("Reports"))
             return "reports";
         return "";
     }
@@ -257,7 +262,7 @@ public class SupportController {
         return sp;
     }
 
-    private VBox createStatCard(String label, String value, String desc, String color) {
+    private VBox statCard(String label, String value, String detail, String color) {
         VBox card = new VBox(4);
         card.setPadding(new Insets(16));
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
@@ -269,129 +274,388 @@ public class SupportController {
         Label v = new Label(value);
         v.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
         v.setTextFill(Color.web(TEXT()));
-        Label d = new Label(desc);
+        Label d = new Label(detail);
         d.setFont(Font.font("Segoe UI", 11));
         d.setTextFill(Color.web(color));
         card.getChildren().addAll(l, v, d);
         return card;
     }
 
-    // ═══════════ PAGES ═══════════
+    private VBox createQuickActionCard(String title, String description) {
+        VBox card = new VBox(4);
+        card.setPadding(new Insets(16));
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;");
+        HBox.setHgrow(card, Priority.ALWAYS);
+        Label t = new Label(title);
+        t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        t.setTextFill(Color.web(TEXT()));
+        Label d = new Label(description);
+        d.setFont(Font.font("Segoe UI", 11));
+        d.setTextFill(Color.web(MUTED_FG()));
+        card.getChildren().addAll(t, d);
+        card.setOnMouseEntered(e -> card.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-color: " + PRIMARY
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;"));
+        card.setOnMouseExited(e -> card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;"));
+        return card;
+    }
 
-    // -- DASHBOARD --
+    // ═══════════ DASHBOARD ═══════════
     private ScrollPane buildDashboardPage() {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
+
         Label title = new Label("Support Dashboard");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
-        Label sub = new Label("Manage system alerts and user inquiries");
+        Label sub = new Label("System health, tickets, and alerts overview");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        // Real stats
+        int logCount = systemLogService.getCount();
+        List<SystemLog> recentLogs = systemLogService.getRecent(50);
+        long incidentCount = recentLogs.stream()
+                .filter(l -> l.getEventType() != null && l.getEventType().equals("Incident"))
+                .count();
+        long alertCount = recentLogs.stream()
+                .filter(l -> l.getEventType() != null &&
+                        (l.getEventType().contains("Error") || l.getEventType().contains("Warning")
+                                || l.getEventType().contains("Delete")))
+                .count();
+
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                createStatCard("Open Tickets", "3", "High priority", WARNING),
-                createStatCard("Avg Response Time", "1.2h", "-0.3h improved", SECONDARY),
-                createStatCard("Critical Alerts", "1", "Need immediate action", DESTRUCTIVE));
+                statCard("Total Logs", String.valueOf(logCount), "System-wide", MUTED_FG()),
+                statCard("Incidents", String.valueOf(incidentCount), "Reported", DESTRUCTIVE),
+                statCard("Alerts", String.valueOf(alertCount), "Active", WARNING),
+                statCard("System Status", "Online", "All services running", SECONDARY));
 
         Label qaTitle = new Label("Quick Actions");
         qaTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         qaTitle.setTextFill(Color.web(TEXT()));
 
         HBox qaCards = new HBox(12);
-        qaCards.getChildren().addAll(
-                createActionCard("Create Ticket", "Log new issue"),
-                createActionCard("System Health", "Check status"),
-                createActionCard("Knowledge Base", "View articles"));
+        VBox qaAlerts = createQuickActionCard("View Alerts", "Check system alerts");
+        qaAlerts.setOnMouseClicked(e -> {
+            activePage = "alerts";
+            refreshSidebar();
+            root.setCenter(buildAlertsPage());
+        });
+        VBox qaIncident = createQuickActionCard("Create Incident", "Report a new incident");
+        qaIncident.setOnMouseClicked(e -> {
+            activePage = "reports";
+            refreshSidebar();
+            root.setCenter(buildNewIncidentForm());
+        });
+        VBox qaReports = createQuickActionCard("View Reports", "See incident history");
+        qaReports.setOnMouseClicked(e -> {
+            activePage = "reports";
+            refreshSidebar();
+            root.setCenter(buildReportsPage());
+        });
+        qaCards.getChildren().addAll(qaAlerts, qaIncident, qaReports);
 
-        page.getChildren().addAll(new VBox(4, title, sub), stats, qaTitle, qaCards);
+        // Recent Activity
+        VBox recentCard = new VBox(0);
+        recentCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+        HBox rHdr = new HBox();
+        rHdr.setPadding(new Insets(16));
+        rHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        Label rTitle = new Label("Recent System Activity");
+        rTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        rTitle.setTextFill(Color.web(TEXT()));
+        rHdr.getChildren().add(rTitle);
+
+        VBox rList = new VBox(0);
+        List<SystemLog> recent5 = systemLogService.getRecent(5);
+        if (recent5.isEmpty()) {
+            Label noLogs = new Label("No recent activity.");
+            noLogs.setTextFill(Color.web(MUTED_FG()));
+            noLogs.setPadding(new Insets(16));
+            rList.getChildren().add(noLogs);
+        } else {
+            for (SystemLog log : recent5) {
+                HBox logRow = new HBox(12);
+                logRow.setPadding(new Insets(12, 16, 12, 16));
+                logRow.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                logRow.setAlignment(Pos.CENTER_LEFT);
+
+                Label typeBadge = new Label(log.getEventType() != null ? log.getEventType() : "Info");
+                typeBadge.setFont(Font.font("Segoe UI", 11));
+                typeBadge.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-text-fill: " + PRIMARY
+                        + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+
+                Label desc = new Label(log.getDescription() != null ? log.getDescription() : "");
+                desc.setFont(Font.font("Segoe UI", 13));
+                desc.setTextFill(Color.web(TEXT()));
+                HBox.setHgrow(desc, Priority.ALWAYS);
+
+                Label time = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
+                time.setFont(Font.font("Segoe UI", 11));
+                time.setTextFill(Color.web(MUTED_FG()));
+
+                logRow.getChildren().addAll(typeBadge, desc, time);
+                rList.getChildren().add(logRow);
+            }
+        }
+        recentCard.getChildren().addAll(rHdr, rList);
+
+        page.getChildren().addAll(new VBox(4, title, sub), stats, qaTitle, qaCards, recentCard);
         return wrapScroll(page);
     }
 
-    private VBox createActionCard(String title, String desc) {
-        VBox card = new VBox(4);
-        card.setPadding(new Insets(16));
-        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;");
-        HBox.setHgrow(card, Priority.ALWAYS);
-        Label t = new Label(title);
-        t.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
-        t.setTextFill(Color.web(TEXT()));
-        Label d = new Label(desc);
-        d.setFont(Font.font("Segoe UI", 11));
-        d.setTextFill(Color.web(MUTED_FG()));
-        card.getChildren().addAll(t, d);
-        return card;
-    }
-
-    // -- ALERTS --
+    // ═══════════ ALERTS PAGE ═══════════
     private ScrollPane buildAlertsPage() {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
+
         Label title = new Label("System Alerts");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
+        Label sub = new Label("Monitor and manage system alerts");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
-        VBox alerts = new VBox(12);
-        alerts.getChildren().add(createAlertItem("Server Load High", "CPU usage > 90%", "Critical", DESTRUCTIVE));
-        alerts.getChildren().add(
-                createAlertItem("Login Failure Spike", "Multiple failed attempts from IP 192...", "Warning", WARNING));
+        List<SystemLog> allLogs = systemLogService.getRecent(30);
 
-        page.getChildren().addAll(title, alerts);
+        HBox stats = new HBox(16);
+        stats.getChildren().addAll(
+                statCard("Total Entries", String.valueOf(allLogs.size()), "Showing recent", MUTED_FG()),
+                statCard("System Logs", String.valueOf(systemLogService.getCount()), "All time", SECONDARY));
+
+        VBox alertsList = new VBox(12);
+        if (allLogs.isEmpty()) {
+            Label noAlerts = new Label("No alerts at this time.");
+            noAlerts.setTextFill(Color.web(MUTED_FG()));
+            noAlerts.setPadding(new Insets(16));
+            alertsList.getChildren().add(noAlerts);
+        } else {
+            for (SystemLog log : allLogs) {
+                String eventType = log.getEventType() != null ? log.getEventType() : "Info";
+                boolean isError = eventType.contains("Error") || eventType.contains("Delete");
+                boolean isWarning = eventType.contains("Warning");
+                String borderC = isError ? DESTRUCTIVE : BORDER();
+                String badgeColor = isError ? DESTRUCTIVE : isWarning ? WARNING : INFO;
+
+                VBox card = new VBox(8);
+                card.setPadding(new Insets(12));
+                card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
+                        + "; -fx-border-radius: 8; -fx-background-radius: 8;");
+
+                HBox top = new HBox(12);
+                top.setAlignment(Pos.CENTER_LEFT);
+
+                Label typeBadge = new Label(eventType);
+                typeBadge.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+                typeBadge.setStyle("-fx-background-color: " + badgeColor + "1A; -fx-text-fill: " + badgeColor
+                        + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+
+                Label desc = new Label(log.getDescription() != null ? log.getDescription() : "");
+                desc.setFont(Font.font("Segoe UI", 13));
+                desc.setTextFill(Color.web(TEXT()));
+                desc.setWrapText(true);
+                HBox.setHgrow(desc, Priority.ALWAYS);
+
+                Label tm = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
+                tm.setFont(Font.font("Segoe UI", 11));
+                tm.setTextFill(Color.web(MUTED_FG()));
+
+                top.getChildren().addAll(typeBadge, desc, tm);
+
+                HBox bottom = new HBox(12);
+                Label actor = new Label("By: " + (log.getActor() != null ? log.getActor() : "System"));
+                actor.setFont(Font.font("Segoe UI", 11));
+                actor.setTextFill(Color.web(MUTED_FG()));
+
+                Button resolveBtn = new Button("Resolve");
+                resolveBtn.setStyle("-fx-background-color: " + SECONDARY
+                        + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 4 12; -fx-cursor: hand; -fx-font-size: 11px;");
+                resolveBtn.setOnAction(e -> {
+                    systemLogService.save(new SystemLog("Resolution",
+                            "Resolved: " + log.getDescription(), user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                    showAlert("Resolved", "Alert has been marked as resolved.");
+                    root.setCenter(buildAlertsPage());
+                });
+
+                bottom.getChildren().addAll(actor, resolveBtn);
+                card.getChildren().addAll(top, bottom);
+                alertsList.getChildren().add(card);
+            }
+        }
+
+        page.getChildren().addAll(new VBox(4, title, sub), stats, alertsList);
         return wrapScroll(page);
     }
 
-    private VBox createAlertItem(String title, String desc, String level, String color) {
-        VBox card = new VBox(8);
-        card.setPadding(new Insets(12));
-        card.setStyle(
-                "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-radius: 8;");
-
-        HBox top = new HBox();
-        Label t = new Label(title);
-        t.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
-        t.setTextFill(Color.web(TEXT()));
-        Region r = new Region();
-        HBox.setHgrow(r, Priority.ALWAYS);
-        Label l = new Label(level);
-        l.setTextFill(Color.web(color));
-        l.setStyle("-fx-background-color: " + color + "20; -fx-padding: 4 8; -fx-background-radius: 4;");
-        top.getChildren().addAll(t, r, l);
-
-        Label d = new Label(desc);
-        d.setTextFill(Color.web(MUTED_FG()));
-
-        HBox actions = new HBox(8);
-        Button resolve = new Button("Resolve");
-        resolve.setStyle("-fx-background-color: " + SECONDARY + "; -fx-text-fill: white; -fx-background-radius: 4;");
-        Button ignore = new Button("Ignore");
-        ignore.setStyle("-fx-background-color: transparent; -fx-text-fill: " + MUTED_FG() + "; -fx-border-color: "
-                + BORDER() + "; -fx-border-radius: 4;");
-        actions.getChildren().addAll(resolve, ignore);
-
-        card.getChildren().addAll(top, d, actions);
-        return card;
-    }
-
-    // -- REPORTS --
+    // ═══════════ REPORTS (INCIDENT HISTORY) ═══════════
     private ScrollPane buildReportsPage() {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
+
         Label title = new Label("Incident Reports");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
+        Label sub = new Label("View incident history and create new reports");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
 
-        TableView<String> table = new TableView<>();
-        // Placeholder for report table
-        Label placeholder = new Label("No incident reports generated this week.");
-        placeholder.setTextFill(Color.web(MUTED_FG()));
+        // Create New Incident button
+        Button createBtn = new Button("+ Create New Incident Report");
+        createBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;");
+        createBtn.setOnAction(e -> root.setCenter(buildNewIncidentForm()));
 
-        Button newReport = new Button("Create New Incident Report");
-        newReport.setStyle("-fx-background-color: " + PRIMARY
-                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16;");
+        // Incident history table
+        VBox tableCard = new VBox(0);
+        tableCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        page.getChildren().addAll(title, placeholder, newReport);
+        HBox tHdr = new HBox();
+        tHdr.setPadding(new Insets(16));
+        tHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        Label tTitle = new Label("Incident History");
+        tTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        tTitle.setTextFill(Color.web(TEXT()));
+        tHdr.getChildren().add(tTitle);
+
+        // Table header
+        GridPane grid = new GridPane();
+        String[] cols = { "Event Type", "Description", "Reported By", "Timestamp" };
+        for (int i = 0; i < cols.length; i++) {
+            Label h = new Label(cols[i]);
+            h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+            h.setPadding(new Insets(8, 16, 8, 16));
+            h.setMaxWidth(Double.MAX_VALUE);
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
+            h.setTextFill(Color.web(TEXT()));
+            grid.add(h, i, 0);
+        }
+
+        // Table rows from system logs (filter for incidents)
+        List<SystemLog> allLogs = systemLogService.getRecent(50);
+        int row = 1;
+        boolean hasIncidents = false;
+        for (SystemLog log : allLogs) {
+            if (log.getEventType() != null && log.getEventType().equals("Incident")) {
+                hasIncidents = true;
+                Label typeL = new Label(log.getEventType());
+                typeL.setFont(Font.font("Segoe UI", 13));
+                typeL.setTextFill(Color.web(TEXT()));
+                typeL.setPadding(new Insets(12, 16, 12, 16));
+                typeL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+                Label descL = new Label(log.getDescription() != null ? log.getDescription() : "");
+                descL.setFont(Font.font("Segoe UI", 13));
+                descL.setTextFill(Color.web(TEXT()));
+                descL.setPadding(new Insets(12, 16, 12, 16));
+                descL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                descL.setWrapText(true);
+
+                Label actorL = new Label(log.getActor() != null ? log.getActor() : "System");
+                actorL.setFont(Font.font("Segoe UI", 13));
+                actorL.setTextFill(Color.web(MUTED_FG()));
+                actorL.setPadding(new Insets(12, 16, 12, 16));
+                actorL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+                Label timeL = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
+                timeL.setFont(Font.font("Segoe UI", 11));
+                timeL.setTextFill(Color.web(MUTED_FG()));
+                timeL.setPadding(new Insets(12, 16, 12, 16));
+                timeL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+
+                grid.add(typeL, 0, row);
+                grid.add(descL, 1, row);
+                grid.add(actorL, 2, row);
+                grid.add(timeL, 3, row);
+                row++;
+            }
+        }
+        if (!hasIncidents) {
+            Label noRows = new Label("No incidents reported yet. Click \"Create New Incident Report\" to log one.");
+            noRows.setFont(Font.font("Segoe UI", 13));
+            noRows.setTextFill(Color.web(MUTED_FG()));
+            noRows.setPadding(new Insets(24));
+            grid.add(noRows, 0, 1);
+            GridPane.setColumnSpan(noRows, 4);
+        }
+
+        tableCard.getChildren().addAll(tHdr, grid);
+        page.getChildren().addAll(new VBox(4, title, sub), createBtn, tableCard);
         return wrapScroll(page);
+    }
+
+    // ═══════════ NEW INCIDENT FORM ═══════════
+    private ScrollPane buildNewIncidentForm() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Button backBtn = new Button("\u2190 Back to Incident Reports");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
+        backBtn.setOnAction(e -> root.setCenter(buildReportsPage()));
+
+        Label title = new Label("Create New Incident Report");
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
+
+        VBox formCard = new VBox(16);
+        formCard.setPadding(new Insets(24));
+        formCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Label catLabel = new Label("Category");
+        catLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        catLabel.setTextFill(Color.web(TEXT()));
+        ComboBox<String> category = new ComboBox<>();
+        category.getItems().addAll("Security Issue", "System Error", "User Complaint", "Data Issue", "Other");
+        category.setValue("Security Issue");
+        category.setMaxWidth(Double.MAX_VALUE);
+
+        Label sevLabel = new Label("Severity");
+        sevLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        sevLabel.setTextFill(Color.web(TEXT()));
+        ComboBox<String> severity = new ComboBox<>();
+        severity.getItems().addAll("Critical", "High", "Medium", "Low");
+        severity.setValue("Medium");
+        severity.setMaxWidth(Double.MAX_VALUE);
+
+        Label descLabel = new Label("Description");
+        descLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        descLabel.setTextFill(Color.web(TEXT()));
+        TextArea descArea = new TextArea();
+        descArea.setPromptText("Describe the incident in detail...");
+        descArea.setPrefRowCount(5);
+
+        Button submit = new Button("Submit Incident Report");
+        submit.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
+        submit.setOnAction(e -> {
+            String descText = descArea.getText().trim();
+            if (descText.isEmpty()) {
+                showAlert("Warning", "Please enter a description.");
+                return;
+            }
+            String logDesc = "[" + severity.getValue() + "] " + category.getValue() + ": " + descText;
+            systemLogService.save(new SystemLog("Incident", logDesc, user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            showAlert("Success", "Incident report submitted successfully!");
+            root.setCenter(buildReportsPage());
+        });
+
+        formCard.getChildren().addAll(catLabel, category, sevLabel, severity, descLabel, descArea, new Separator(),
+                submit);
+        page.getChildren().addAll(backBtn, title, formCard);
+        return wrapScroll(page);
+    }
+
+    private void showAlert(String titleStr, String msg) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(titleStr);
+        alert.setHeaderText(null);
+        alert.setContentText(msg);
+        alert.showAndWait();
     }
 }

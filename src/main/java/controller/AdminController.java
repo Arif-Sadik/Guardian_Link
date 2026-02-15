@@ -740,19 +740,26 @@ public class AdminController {
 
         Label title = new Label("Alerts & Notifications");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
         Label sub = new Label("Monitor system alerts and emergencies");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        long criticalCount = activeAlerts.stream().filter(a -> a[0].equals("critical")).count();
+        long warningCount = activeAlerts.stream().filter(a -> a[0].equals("warning")).count();
+        long totalActive = activeAlerts.size();
+
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Active", "5", "Requires attention", WARNING, MUTED_FG()),
-                statCard("Critical", "2", "Immediate action needed", DESTRUCTIVE, DESTRUCTIVE),
-                statCard("Warnings", "2", "Review soon", WARNING, WARNING),
-                statCard("Resolved Today", "2", "Completed", SECONDARY, SECONDARY));
+                statCard("Total Active", String.valueOf(totalActive), "Requires attention", WARNING, MUTED_FG()),
+                statCard("Critical", String.valueOf(criticalCount), "Immediate action needed", DESTRUCTIVE,
+                        DESTRUCTIVE),
+                statCard("Warnings", String.valueOf(warningCount), "Review soon", WARNING, WARNING),
+                statCard("Resolved Today", "0", "Completed", SECONDARY, SECONDARY));
 
         Label activeTitle = new Label("Active Alerts");
         activeTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        activeTitle.setTextFill(Color.web(TEXT()));
 
         VBox alertsList = new VBox(12);
         for (String[] a : activeAlerts) {
@@ -856,11 +863,13 @@ public class AdminController {
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         Label genTitle = new Label("Report Generator");
         genTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        genTitle.setTextFill(Color.web(TEXT()));
 
         HBox row1 = new HBox(24);
         VBox col1 = new VBox(8);
         Label rtLabel = new Label("Report Type");
         rtLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        rtLabel.setTextFill(Color.web(TEXT()));
         ComboBox<String> rtCombo = new ComboBox<>();
         rtCombo.getItems().addAll("Donation & Financial Report", "Child Welfare Summary", "System Audit Log",
                 "Performance Analytics");
@@ -872,6 +881,7 @@ public class AdminController {
         VBox col2 = new VBox(8);
         Label drLabel = new Label("Date Range");
         drLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        drLabel.setTextFill(Color.web(TEXT()));
         ComboBox<String> drCombo = new ComboBox<>();
         drCombo.getItems().addAll("Last 7 Days", "Last 30 Days", "Last 3 Months", "Last Year");
         drCombo.setValue("Last 30 Days");
@@ -1009,12 +1019,15 @@ public class AdminController {
         reportCard.getChildren().addAll(rHdr, summaryStats, donGrid);
 
         // Quick stats at bottom
+        int totalLogCount = systemLogService.getCount();
         HBox qStats = new HBox(16);
         qStats.getChildren().addAll(
-                statCard("Reports Generated", "1,247", "All time", PRIMARY, MUTED_FG()),
-                statCard("This Month", "45", "+12% from last month", SECONDARY, SECONDARY),
-                statCard("Audit Entries", "28,394", "Total logged events", PRIMARY, MUTED_FG()),
-                statCard("Data Retention", "2 Years", "Compliance period", PRIMARY, MUTED_FG()));
+                statCard("Reports Generated", String.valueOf(systemLogService.getRecent(100).stream()
+                        .filter(l -> l.getEventType() != null && l.getEventType().equals("Report")).count()),
+                        "All time", PRIMARY, MUTED_FG()),
+                statCard("Total Donations", String.valueOf(allDonations.size()), "Records", SECONDARY, SECONDARY),
+                statCard("Audit Entries", String.valueOf(totalLogCount), "Total logged events", PRIMARY, MUTED_FG()),
+                statCard("Children", String.valueOf(allChildren.size()), "In system", PRIMARY, MUTED_FG()));
 
         page.getChildren().addAll(new VBox(4, title, sub), genCard, reportCard, qStats);
         ScrollPane sp = new ScrollPane(page);

@@ -17,7 +17,12 @@ import model.user.User;
 import service.ChildService;
 import service.DonationService;
 import service.SystemLogService;
+import service.MedicalRecordService;
+import service.EducationRecordService;
+import model.entity.MedicalRecord;
+import model.entity.EducationRecord;
 import util.ThemeManager;
+import javafx.stage.FileChooser;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +44,8 @@ public class DonorController {
     private final ChildService childService = new ChildService();
     private final DonationService donationService = new DonationService();
     private final SystemLogService systemLogService = new SystemLogService();
+    private final MedicalRecordService medicalRecordService = new MedicalRecordService();
+    private final EducationRecordService educationRecordService = new EducationRecordService();
 
     private static final String PRIMARY = ThemeManager.PRIMARY;
     private static final String SECONDARY = ThemeManager.SECONDARY;
@@ -307,6 +314,7 @@ public class DonorController {
         l.setTextFill(Color.web(MUTED_FG()));
         Label v = new Label(value);
         v.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+        v.setTextFill(Color.web(TEXT()));
         Label d = new Label(detail);
         d.setFont(Font.font("Segoe UI", 11));
         d.setTextFill(Color.web(detailColor));
@@ -563,6 +571,7 @@ public class DonorController {
 
         Label title = new Label("Donation History");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
         Label sub = new Label("View all your donations and transactions");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
@@ -592,6 +601,31 @@ public class DonorController {
         Button exportBtn = new Button("Export to CSV");
         exportBtn.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand;");
+        exportBtn.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            fc.setTitle("Export Donations to CSV");
+            fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+            fc.setInitialFileName("donations.csv");
+            java.io.File file = fc.showSaveDialog(stage);
+            if (file != null) {
+                try (java.io.PrintWriter pw = new java.io.PrintWriter(file)) {
+                    pw.println("Date,Child,Amount,Purpose,Status");
+                    for (Donation don : donDonations) {
+                        Child c = childService.getChildById(don.getChildId());
+                        String cName = c != null ? c.getName() : "Child #" + don.getChildId();
+                        pw.printf("%s,%s,%.0f,%s,%s%n",
+                                don.getDate() != null ? don.getDate() : "",
+                                cName,
+                                don.getAmount(),
+                                don.getPurpose() != null ? don.getPurpose() : "",
+                                don.getStatus() != null ? don.getStatus() : "Completed");
+                    }
+                    showAlert("Success", "Exported " + donDonations.size() + " records to " + file.getName());
+                } catch (Exception ex) {
+                    showAlert("Error", "Failed to export: " + ex.getMessage());
+                }
+            }
+        });
         hdr.getChildren().addAll(tl, sp1, exportBtn);
 
         GridPane grid = new GridPane();
@@ -602,6 +636,7 @@ public class DonorController {
             h.setPadding(new Insets(8, 16, 8, 16));
             h.setMaxWidth(Double.MAX_VALUE);
             h.setStyle("-fx-background-color: " + MUTED() + ";");
+            h.setTextFill(Color.web(TEXT()));
             grid.add(h, i, 0);
         }
         String[][] rows = donDonations.stream().map(don -> {
@@ -627,6 +662,7 @@ public class DonorController {
                 }
                 Label cell = new Label(rows[r][c]);
                 cell.setFont(Font.font("Segoe UI", 13));
+                cell.setTextFill(Color.web(TEXT()));
                 if (c == 0) {
                     cell.setFont(Font.font("Segoe UI", 12));
                     cell.setTextFill(Color.web(MUTED_FG()));
@@ -804,6 +840,7 @@ public class DonorController {
 
         Label title = new Label("Child Detail: " + child[1]);
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setTextFill(Color.web(TEXT()));
 
         VBox card = new VBox(20);
         card.setPadding(new Insets(24));
@@ -822,10 +859,28 @@ public class DonorController {
         VBox info = new VBox(4);
         Label n = new Label(child[1]);
         n.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+        n.setTextFill(Color.web(TEXT()));
         Label i = new Label("ID: " + child[0]);
         i.setTextFill(Color.web(MUTED_FG()));
         info.getChildren().addAll(n, i);
         hdr.getChildren().addAll(avatar, info);
+
+        // Pull real data from DB
+        int childId;
+        try {
+            childId = Integer.parseInt(child[0].replace("CH-", ""));
+        } catch (NumberFormatException ex) {
+            childId = 0;
+        }
+        Child dbChild = childService.getChildById(childId);
+        String org = dbChild != null && dbChild.getOrganization() != null ? dbChild.getOrganization() : "N/A";
+
+        java.util.List<MedicalRecord> meds = medicalRecordService.getRecordsByChildId(childId);
+        String healthStatus = meds.isEmpty() ? "N/A"
+                : meds.get(0).getMedicalCondition() != null ? meds.get(0).getMedicalCondition() : "N/A";
+
+        java.util.List<EducationRecord> edus = educationRecordService.getRecordsByChildId(childId);
+        String education = edus.isEmpty() ? "N/A" : (edus.get(0).getGrade() != null ? edus.get(0).getGrade() : "N/A");
 
         GridPane details = new GridPane();
         details.setHgap(40);
@@ -833,15 +888,16 @@ public class DonorController {
         String[][] data = {
                 { "Age", child[2] },
                 { "Gender", child[3] },
-                { "Location", "Dhaka Center" },
-                { "Health Status", "Excellent" },
-                { "Education", "Class 4" }
+                { "Organization", org },
+                { "Health Status", healthStatus },
+                { "Education", education }
         };
         for (int r = 0; r < data.length; r++) {
             Label l = new Label(data[r][0]);
             l.setTextFill(Color.web(MUTED_FG()));
             Label v = new Label(data[r][1]);
             v.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+            v.setTextFill(Color.web(TEXT()));
             details.add(l, 0, r);
             details.add(v, 1, r);
         }
