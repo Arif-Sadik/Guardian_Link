@@ -1,5 +1,7 @@
 package controller;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -11,6 +13,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import model.entity.Child;
 import model.entity.Donation;
 import model.entity.SystemLog;
@@ -115,6 +118,19 @@ public class AdminController {
         root.setLeft(buildSidebar());
         root.setCenter(buildDashboardPage());
         root.setStyle("-fx-background-color: " + BG() + ";");
+
+        // Auto-refresh timer: refresh the active page every 30 seconds for real-time
+        // data
+        Timeline refreshTimer = new Timeline(new KeyFrame(Duration.seconds(30), ev -> {
+            switch (activePage) {
+                case "dashboard" -> root.setCenter(buildDashboardPage());
+                case "children" -> root.setCenter(buildChildrenPage());
+                case "reports" -> root.setCenter(buildReportsPage());
+                case "admin" -> root.setCenter(buildAdminPage());
+            }
+        }));
+        refreshTimer.setCycleCount(Timeline.INDEFINITE);
+        refreshTimer.play();
 
         Scene scene = new Scene(root, 1280, 800);
         stage.setScene(scene);
@@ -852,6 +868,7 @@ public class AdminController {
 
         Label title = new Label("Reports & Audit Logs");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
         Label sub = new Label("Generate reports and view system audit trails");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
@@ -890,10 +907,11 @@ public class AdminController {
         HBox.setHgrow(col2, Priority.ALWAYS);
         row1.getChildren().addAll(col1, col2);
 
-        // Load donations from DB
+        // Load data from DB
         java.util.List<Donation> allDonations = donationService.getAll();
         java.util.List<Child> allChildren = childService.getAllChildren();
         java.util.List<User> allUsersForReport = userService.getAllUsers();
+        java.util.List<SystemLog> allLogs = systemLogService.getAll();
         java.util.Map<Integer, String> childNames = new java.util.HashMap<>();
         for (Child ch : allChildren)
             childNames.put(ch.getId(), ch.getName());
@@ -903,6 +921,9 @@ public class AdminController {
 
         double totalDonated = allDonations.stream().mapToDouble(Donation::getAmount).sum();
 
+        // Container for the dynamic report preview
+        VBox reportPreviewContainer = new VBox();
+
         HBox buttons = new HBox(12);
         Button genBtn = new Button("\uD83D\uDCC4  Generate Report");
         genBtn.setStyle("-fx-background-color: " + PRIMARY
@@ -910,29 +931,71 @@ public class AdminController {
         genBtn.setOnAction(e -> {
             systemLogService.save(new SystemLog("Report", "Generated " + rtCombo.getValue(), user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            root.setCenter(buildReportsPage());
+            reportPreviewContainer.getChildren().clear();
+            reportPreviewContainer.getChildren().add(
+                    buildReportPreview(rtCombo.getValue(), allDonations, allChildren, allUsersForReport,
+                            allLogs, childNames, userNames, totalDonated));
+            new Alert(Alert.AlertType.INFORMATION, "Report generated successfully: " + rtCombo.getValue()).show();
         });
         Button csvBtn = new Button("\u2B07  Export to CSV");
         csvBtn.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
         csvBtn.setOnAction(e -> {
+            String selectedType = rtCombo.getValue();
             FileChooser fc = new FileChooser();
             fc.setTitle("Export CSV");
             fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-            fc.setInitialFileName("donation_report.csv");
+            String fileName = selectedType.replaceAll("[^a-zA-Z0-9]", "_").toLowerCase() + ".csv";
+            fc.setInitialFileName(fileName);
             File file = fc.showSaveDialog(stage);
             if (file != null) {
                 try (FileWriter fw = new FileWriter(file)) {
-                    fw.write("Donor,Child,Amount,Date,Purpose\n");
-                    for (Donation d : allDonations) {
-                        fw.write(String.format("%s,%s,%.0f,%s,%s\n",
-                                userNames.getOrDefault(d.getDonorId(), "Unknown"),
-                                childNames.getOrDefault(d.getChildId(), "Unknown"),
-                                d.getAmount(), d.getDate(), d.getPurpose()));
+                    switch (selectedType) {
+                        case "Donation & Financial Report" -> {
+                            fw.write("Donor,Child,Amount,Date,Purpose\n");
+                            for (Donation d : allDonations) {
+                                fw.write(String.format("%s,%s,%.0f,%s,%s\n",
+                                        userNames.getOrDefault(d.getDonorId(), "Unknown"),
+                                        childNames.getOrDefault(d.getChildId(), "Unknown"),
+                                        d.getAmount(), d.getDate(), d.getPurpose()));
+                            }
+                        }
+                        case "Child Welfare Summary" -> {
+                            fw.write("ID,Name,Age,Gender,Organization,Status\n");
+                            for (Child ch : allChildren) {
+                                fw.write(String.format("CH-%d,%s,%d,%s,%s,%s\n",
+                                        1000 + ch.getId(), ch.getName(), ch.getAge(),
+                                        ch.getGender() != null ? ch.getGender() : "",
+                                        ch.getOrganization() != null ? ch.getOrganization() : "",
+                                        ch.getStatus() != null ? ch.getStatus() : "Active"));
+                            }
+                        }
+                        case "System Audit Log" -> {
+                            fw.write("Timestamp,Event Type,Actor,Description\n");
+                            for (SystemLog log : allLogs) {
+                                fw.write(String.format("%s,%s,%s,%s\n",
+                                        log.getTimestamp() != null ? log.getTimestamp() : "",
+                                        log.getEventType() != null ? log.getEventType() : "",
+                                        log.getActor() != null ? log.getActor() : "",
+                                        log.getDescription() != null ? log.getDescription().replace(",", ";") : ""));
+                            }
+                        }
+                        case "Performance Analytics" -> {
+                            fw.write("Metric,Value\n");
+                            fw.write(String.format("Total Users,%d\n", allUsersForReport.size()));
+                            fw.write(String.format("Active Users,%d\n",
+                                    allUsersForReport.stream().filter(User::isApproved).count()));
+                            fw.write(String.format("Total Children,%d\n", allChildren.size()));
+                            fw.write(String.format("Total Donations,%d\n", allDonations.size()));
+                            fw.write(String.format("Total Donated,%.0f\n", totalDonated));
+                            fw.write(String.format("System Log Entries,%d\n", allLogs.size()));
+                        }
                     }
-                    systemLogService.save(new SystemLog("Export", "Exported donation CSV", user.getUsername(),
+                    systemLogService.save(new SystemLog("Export", "Exported " + selectedType + " CSV",
+                            user.getUsername(),
                             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-                    new Alert(Alert.AlertType.INFORMATION, "CSV exported successfully!").show();
+                    new Alert(Alert.AlertType.INFORMATION, "CSV exported successfully!\nFile: " + file.getName())
+                            .show();
                 } catch (IOException ex) {
                     new Alert(Alert.AlertType.ERROR, "Export failed: " + ex.getMessage()).show();
                 }
@@ -942,81 +1005,10 @@ public class AdminController {
 
         genCard.getChildren().addAll(genTitle, row1, buttons);
 
-        // Donation Report table
-        VBox reportCard = new VBox(0);
-        reportCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
-
-        HBox rHdr = new HBox();
-        rHdr.setPadding(new Insets(16));
-        rHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
-        Label rTitle = new Label("Report Preview - Donation & Financial Report");
-        rTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
-        rTitle.setTextFill(Color.web(TEXT()));
-        rHdr.getChildren().add(rTitle);
-
-        // Summary stats from DB
-        HBox summaryStats = new HBox(16);
-        summaryStats.setPadding(new Insets(16));
-        String totalStr = String.format("\u09F3%,.0f", totalDonated);
-        for (String[] s : new String[][] {
-                { "Total Donations", totalStr, null },
-                { "Total Records", String.valueOf(allDonations.size()), null },
-                { "Children Covered", String.valueOf(childNames.size()), SECONDARY }
-        }) {
-            VBox sBox = new VBox(4);
-            sBox.setPadding(new Insets(12));
-            sBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 4;");
-            HBox.setHgrow(sBox, Priority.ALWAYS);
-            Label sl = new Label(s[0]);
-            sl.setFont(Font.font("Segoe UI", 11));
-            sl.setTextFill(Color.web(MUTED_FG()));
-            Label sv = new Label(s[1]);
-            sv.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 20));
-            sv.setTextFill(Color.web(TEXT()));
-            if (s[2] != null)
-                sv.setTextFill(Color.web(s[2]));
-            sBox.getChildren().addAll(sl, sv);
-            summaryStats.getChildren().add(sBox);
-        }
-
-        GridPane donGrid = new GridPane();
-        String[] donCols = { "Donor", "Child", "Amount", "Date", "Purpose" };
-        for (int i = 0; i < donCols.length; i++) {
-            Label h = new Label(donCols[i]);
-            h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
-            h.setPadding(new Insets(8, 12, 8, 12));
-            h.setStyle("-fx-background-color: " + MUTED() + ";");
-            h.setMaxWidth(Double.MAX_VALUE);
-            h.setTextFill(Color.web(TEXT()));
-            donGrid.add(h, i, 0);
-        }
-        for (int r = 0; r < allDonations.size(); r++) {
-            Donation don = allDonations.get(r);
-            String[] rowData = {
-                    userNames.getOrDefault(don.getDonorId(), "Donor #" + don.getDonorId()),
-                    childNames.getOrDefault(don.getChildId(), "Child #" + don.getChildId()),
-                    String.format("\u09F3%,.0f", don.getAmount()),
-                    don.getDate() != null ? don.getDate() : "",
-                    don.getPurpose() != null ? don.getPurpose() : ""
-            };
-            for (int c = 0; c < rowData.length; c++) {
-                Label cell = new Label(rowData[c]);
-                cell.setFont(Font.font("Segoe UI", 13));
-                cell.setTextFill(Color.web(TEXT()));
-                cell.setPadding(new Insets(8, 12, 8, 12));
-                cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
-                if (c == 2) {
-                    cell.setTextFill(Color.web(SECONDARY));
-                    cell.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
-                }
-                if (c == 3)
-                    cell.setTextFill(Color.web(MUTED_FG()));
-                donGrid.add(cell, c, r + 1);
-            }
-        }
-
-        reportCard.getChildren().addAll(rHdr, summaryStats, donGrid);
+        // Build the initial report preview (Donation & Financial by default)
+        reportPreviewContainer.getChildren().add(
+                buildReportPreview("Donation & Financial Report", allDonations, allChildren, allUsersForReport,
+                        allLogs, childNames, userNames, totalDonated));
 
         // Quick stats at bottom
         int totalLogCount = systemLogService.getCount();
@@ -1029,11 +1021,389 @@ public class AdminController {
                 statCard("Audit Entries", String.valueOf(totalLogCount), "Total logged events", PRIMARY, MUTED_FG()),
                 statCard("Children", String.valueOf(allChildren.size()), "In system", PRIMARY, MUTED_FG()));
 
-        page.getChildren().addAll(new VBox(4, title, sub), genCard, reportCard, qStats);
+        // ── Event Logs Section ──
+        VBox eventLogsCard = new VBox(0);
+        eventLogsCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        HBox elHdr = new HBox();
+        elHdr.setPadding(new Insets(16));
+        elHdr.setAlignment(Pos.CENTER_LEFT);
+        elHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        Label elTitle = new Label("Audit Trail — Event Logs");
+        elTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        elTitle.setTextFill(Color.web(TEXT()));
+        Region elSpacer = new Region();
+        HBox.setHgrow(elSpacer, Priority.ALWAYS);
+        Label elCount = new Label(allLogs.size() + " entries");
+        elCount.setFont(Font.font("Segoe UI", 12));
+        elCount.setTextFill(Color.web(MUTED_FG()));
+        elHdr.getChildren().addAll(elTitle, elSpacer, elCount);
+
+        GridPane elGrid = new GridPane();
+        String[] elCols = { "Timestamp", "Event Type", "Actor", "Description", "Actions" };
+        for (int i = 0; i < elCols.length; i++) {
+            Label h = new Label(elCols[i]);
+            h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+            h.setPadding(new Insets(8, 16, 8, 16));
+            h.setMaxWidth(Double.MAX_VALUE);
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
+            h.setTextFill(Color.web(TEXT()));
+            elGrid.add(h, i, 0);
+        }
+
+        int logLimit = Math.min(allLogs.size(), 50);
+        for (int r = 0; r < logLimit; r++) {
+            SystemLog log = allLogs.get(r);
+            String[] rowData = {
+                    log.getTimestamp() != null ? log.getTimestamp() : "",
+                    log.getEventType() != null ? log.getEventType() : "",
+                    log.getActor() != null ? log.getActor() : "",
+                    log.getDescription() != null ? log.getDescription() : ""
+            };
+            for (int c = 0; c < rowData.length; c++) {
+                Label cell = new Label(rowData[c]);
+                cell.setFont(Font.font(c == 0 ? "Consolas" : "Segoe UI", c == 0 ? 11 : 13));
+                cell.setTextFill(Color.web(c == 0 ? MUTED_FG() : TEXT()));
+                cell.setPadding(new Insets(10, 16, 10, 16));
+                cell.setMaxWidth(Double.MAX_VALUE);
+                cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                elGrid.add(cell, c, r + 1);
+            }
+            // View Details button
+            final SystemLog currentLog = log;
+            Button detailBtn = new Button("View Details");
+            detailBtn.setFont(Font.font("Segoe UI", 11));
+            detailBtn.setStyle("-fx-background-color: " + PRIMARY
+                    + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 4 12; -fx-cursor: hand;");
+            detailBtn.setOnAction(e -> {
+                Alert detail = new Alert(Alert.AlertType.INFORMATION);
+                detail.setTitle("Event Log Details");
+                detail.setHeaderText(currentLog.getEventType() != null ? currentLog.getEventType() : "Event");
+                detail.setContentText(
+                        "Timestamp: " + (currentLog.getTimestamp() != null ? currentLog.getTimestamp() : "N/A")
+                                + "\nEvent Type: "
+                                + (currentLog.getEventType() != null ? currentLog.getEventType() : "N/A")
+                                + "\nActor: " + (currentLog.getActor() != null ? currentLog.getActor() : "N/A")
+                                + "\nDescription: "
+                                + (currentLog.getDescription() != null ? currentLog.getDescription() : "N/A")
+                                + "\nLog ID: " + currentLog.getId());
+                detail.getDialogPane().setMinWidth(450);
+                detail.show();
+            });
+            HBox actionBox = new HBox(detailBtn);
+            actionBox.setAlignment(Pos.CENTER_LEFT);
+            actionBox.setPadding(new Insets(6, 16, 6, 16));
+            actionBox.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+            elGrid.add(actionBox, 4, r + 1);
+        }
+
+        eventLogsCard.getChildren().addAll(elHdr, elGrid);
+
+        page.getChildren().addAll(new VBox(4, title, sub), genCard, reportPreviewContainer, qStats, eventLogsCard);
         ScrollPane sp = new ScrollPane(page);
         sp.setFitToWidth(true);
         sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
         return sp;
+    }
+
+    /**
+     * Builds the dynamic report preview card based on the selected report type.
+     */
+    private VBox buildReportPreview(String reportType, java.util.List<Donation> allDonations,
+            java.util.List<Child> allChildren, java.util.List<User> allUsers,
+            java.util.List<SystemLog> allLogs,
+            java.util.Map<Integer, String> childNames, java.util.Map<Integer, String> userNames,
+            double totalDonated) {
+
+        VBox reportCard = new VBox(0);
+        reportCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        HBox rHdr = new HBox();
+        rHdr.setPadding(new Insets(16));
+        rHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        Label rTitle = new Label("Report Preview — " + reportType);
+        rTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        rTitle.setTextFill(Color.web(TEXT()));
+        rHdr.getChildren().add(rTitle);
+        reportCard.getChildren().add(rHdr);
+
+        switch (reportType) {
+            case "Donation & Financial Report" -> {
+                HBox summaryStats = new HBox(16);
+                summaryStats.setPadding(new Insets(16));
+                String totalStr = String.format("\u09F3%,.0f", totalDonated);
+                for (String[] s : new String[][] {
+                        { "Total Donations", totalStr, null },
+                        { "Total Records", String.valueOf(allDonations.size()), null },
+                        { "Children Covered", String.valueOf(childNames.size()), SECONDARY }
+                }) {
+                    VBox sBox = new VBox(4);
+                    sBox.setPadding(new Insets(12));
+                    sBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 4;");
+                    HBox.setHgrow(sBox, Priority.ALWAYS);
+                    Label sl = new Label(s[0]);
+                    sl.setFont(Font.font("Segoe UI", 11));
+                    sl.setTextFill(Color.web(MUTED_FG()));
+                    Label sv = new Label(s[1]);
+                    sv.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 20));
+                    sv.setTextFill(Color.web(TEXT()));
+                    if (s[2] != null)
+                        sv.setTextFill(Color.web(s[2]));
+                    sBox.getChildren().addAll(sl, sv);
+                    summaryStats.getChildren().add(sBox);
+                }
+                reportCard.getChildren().add(summaryStats);
+
+                GridPane donGrid = new GridPane();
+                String[] donCols = { "Donor", "Child", "Amount", "Date", "Purpose" };
+                for (int i = 0; i < donCols.length; i++) {
+                    Label h = new Label(donCols[i]);
+                    h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+                    h.setPadding(new Insets(8, 12, 8, 12));
+                    h.setStyle("-fx-background-color: " + MUTED() + ";");
+                    h.setMaxWidth(Double.MAX_VALUE);
+                    h.setTextFill(Color.web(TEXT()));
+                    donGrid.add(h, i, 0);
+                }
+                for (int r = 0; r < allDonations.size(); r++) {
+                    Donation don = allDonations.get(r);
+                    String[] rowData = {
+                            userNames.getOrDefault(don.getDonorId(), "Donor #" + don.getDonorId()),
+                            childNames.getOrDefault(don.getChildId(), "Child #" + don.getChildId()),
+                            String.format("\u09F3%,.0f", don.getAmount()),
+                            don.getDate() != null ? don.getDate() : "",
+                            don.getPurpose() != null ? don.getPurpose() : ""
+                    };
+                    for (int c = 0; c < rowData.length; c++) {
+                        Label cell = new Label(rowData[c]);
+                        cell.setFont(Font.font("Segoe UI", 13));
+                        cell.setTextFill(Color.web(TEXT()));
+                        cell.setPadding(new Insets(8, 12, 8, 12));
+                        cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                        if (c == 2) {
+                            cell.setTextFill(Color.web(SECONDARY));
+                            cell.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 13));
+                        }
+                        if (c == 3)
+                            cell.setTextFill(Color.web(MUTED_FG()));
+                        donGrid.add(cell, c, r + 1);
+                    }
+                }
+                reportCard.getChildren().add(donGrid);
+            }
+            case "Child Welfare Summary" -> {
+                int activeCount = (int) allChildren.stream()
+                        .filter(ch -> ch.getStatus() == null || ch.getStatus().equals("Active")).count();
+                HBox summaryStats = new HBox(16);
+                summaryStats.setPadding(new Insets(16));
+                for (String[] s : new String[][] {
+                        { "Total Children", String.valueOf(allChildren.size()), null },
+                        { "Active", String.valueOf(activeCount), SECONDARY },
+                        { "Organizations", String.valueOf(allChildren.stream()
+                                .map(Child::getOrganization).filter(o -> o != null && !o.isEmpty())
+                                .distinct().count()), PRIMARY }
+                }) {
+                    VBox sBox = new VBox(4);
+                    sBox.setPadding(new Insets(12));
+                    sBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 4;");
+                    HBox.setHgrow(sBox, Priority.ALWAYS);
+                    Label sl = new Label(s[0]);
+                    sl.setFont(Font.font("Segoe UI", 11));
+                    sl.setTextFill(Color.web(MUTED_FG()));
+                    Label sv = new Label(s[1]);
+                    sv.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 20));
+                    sv.setTextFill(Color.web(TEXT()));
+                    if (s[2] != null)
+                        sv.setTextFill(Color.web(s[2]));
+                    sBox.getChildren().addAll(sl, sv);
+                    summaryStats.getChildren().add(sBox);
+                }
+                reportCard.getChildren().add(summaryStats);
+
+                GridPane childGrid = new GridPane();
+                String[] cols = { "Child ID", "Name", "Age", "Gender", "Organization", "Status" };
+                for (int i = 0; i < cols.length; i++) {
+                    Label h = new Label(cols[i]);
+                    h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+                    h.setPadding(new Insets(8, 12, 8, 12));
+                    h.setStyle("-fx-background-color: " + MUTED() + ";");
+                    h.setMaxWidth(Double.MAX_VALUE);
+                    h.setTextFill(Color.web(TEXT()));
+                    childGrid.add(h, i, 0);
+                }
+                for (int r = 0; r < allChildren.size(); r++) {
+                    Child ch = allChildren.get(r);
+                    String[] rowData = {
+                            "CH-" + (1000 + ch.getId()), ch.getName(),
+                            String.valueOf(ch.getAge()),
+                            ch.getGender() != null ? ch.getGender() : "",
+                            ch.getOrganization() != null ? ch.getOrganization() : "",
+                            ch.getStatus() != null ? ch.getStatus() : "Active"
+                    };
+                    for (int c = 0; c < rowData.length; c++) {
+                        Label cell = new Label(rowData[c]);
+                        cell.setFont(Font.font(c == 0 ? "Consolas" : "Segoe UI", c == 0 ? 12 : 13));
+                        cell.setTextFill(Color.web(TEXT()));
+                        cell.setPadding(new Insets(8, 12, 8, 12));
+                        cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                        if (c == 5) {
+                            Label badge = new Label(rowData[c]);
+                            badge.setFont(Font.font("Segoe UI", 11));
+                            String bgC = rowData[c].equals("Active") ? SECONDARY + "1A" : WARNING + "1A";
+                            String fgC = rowData[c].equals("Active") ? SECONDARY : WARNING;
+                            badge.setStyle("-fx-background-color: " + bgC + "; -fx-text-fill: " + fgC
+                                    + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+                            HBox w = new HBox(badge);
+                            w.setPadding(new Insets(8, 12, 8, 12));
+                            w.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                            childGrid.add(w, c, r + 1);
+                            continue;
+                        }
+                        childGrid.add(cell, c, r + 1);
+                    }
+                }
+                reportCard.getChildren().add(childGrid);
+            }
+            case "System Audit Log" -> {
+                HBox summaryStats = new HBox(16);
+                summaryStats.setPadding(new Insets(16));
+                long reportCount = allLogs.stream()
+                        .filter(l -> l.getEventType() != null && l.getEventType().equals("Report")).count();
+                long exportCount = allLogs.stream()
+                        .filter(l -> l.getEventType() != null && l.getEventType().equals("Export")).count();
+                for (String[] s : new String[][] {
+                        { "Total Entries", String.valueOf(allLogs.size()), null },
+                        { "Reports Generated", String.valueOf(reportCount), PRIMARY },
+                        { "Exports", String.valueOf(exportCount), SECONDARY }
+                }) {
+                    VBox sBox = new VBox(4);
+                    sBox.setPadding(new Insets(12));
+                    sBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 4;");
+                    HBox.setHgrow(sBox, Priority.ALWAYS);
+                    Label sl = new Label(s[0]);
+                    sl.setFont(Font.font("Segoe UI", 11));
+                    sl.setTextFill(Color.web(MUTED_FG()));
+                    Label sv = new Label(s[1]);
+                    sv.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 20));
+                    sv.setTextFill(Color.web(TEXT()));
+                    if (s[2] != null)
+                        sv.setTextFill(Color.web(s[2]));
+                    sBox.getChildren().addAll(sl, sv);
+                    summaryStats.getChildren().add(sBox);
+                }
+                reportCard.getChildren().add(summaryStats);
+
+                GridPane logGrid = new GridPane();
+                String[] cols = { "Timestamp", "Event Type", "Actor", "Description" };
+                for (int i = 0; i < cols.length; i++) {
+                    Label h = new Label(cols[i]);
+                    h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+                    h.setPadding(new Insets(8, 12, 8, 12));
+                    h.setStyle("-fx-background-color: " + MUTED() + ";");
+                    h.setMaxWidth(Double.MAX_VALUE);
+                    h.setTextFill(Color.web(TEXT()));
+                    logGrid.add(h, i, 0);
+                }
+                int limit = Math.min(allLogs.size(), 50);
+                for (int r = 0; r < limit; r++) {
+                    SystemLog log = allLogs.get(r);
+                    String[] rowData = {
+                            log.getTimestamp() != null ? log.getTimestamp() : "",
+                            log.getEventType() != null ? log.getEventType() : "",
+                            log.getActor() != null ? log.getActor() : "",
+                            log.getDescription() != null ? log.getDescription() : ""
+                    };
+                    for (int c = 0; c < rowData.length; c++) {
+                        Label cell = new Label(rowData[c]);
+                        cell.setFont(Font.font(c == 0 ? "Consolas" : "Segoe UI", c == 0 ? 11 : 13));
+                        cell.setTextFill(Color.web(c == 0 ? MUTED_FG() : TEXT()));
+                        cell.setPadding(new Insets(8, 12, 8, 12));
+                        cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                        logGrid.add(cell, c, r + 1);
+                    }
+                }
+                reportCard.getChildren().add(logGrid);
+            }
+            case "Performance Analytics" -> {
+                int totalUsers = allUsers.size();
+                int activeUsers = (int) allUsers.stream().filter(User::isApproved).count();
+                HBox summaryStats = new HBox(16);
+                summaryStats.setPadding(new Insets(16));
+                for (String[] s : new String[][] {
+                        { "Total Users", String.valueOf(totalUsers), null },
+                        { "Active Users", String.valueOf(activeUsers), SECONDARY },
+                        { "Children in System", String.valueOf(allChildren.size()), PRIMARY },
+                        { "Donation Records", String.valueOf(allDonations.size()), WARNING }
+                }) {
+                    VBox sBox = new VBox(4);
+                    sBox.setPadding(new Insets(12));
+                    sBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 4;");
+                    HBox.setHgrow(sBox, Priority.ALWAYS);
+                    Label sl = new Label(s[0]);
+                    sl.setFont(Font.font("Segoe UI", 11));
+                    sl.setTextFill(Color.web(MUTED_FG()));
+                    Label sv = new Label(s[1]);
+                    sv.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 20));
+                    sv.setTextFill(Color.web(TEXT()));
+                    if (s[2] != null)
+                        sv.setTextFill(Color.web(s[2]));
+                    sBox.getChildren().addAll(sl, sv);
+                    summaryStats.getChildren().add(sBox);
+                }
+                reportCard.getChildren().add(summaryStats);
+
+                // Performance metrics table
+                GridPane perfGrid = new GridPane();
+                String[] cols = { "Metric", "Value", "Status" };
+                for (int i = 0; i < cols.length; i++) {
+                    Label h = new Label(cols[i]);
+                    h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+                    h.setPadding(new Insets(8, 12, 8, 12));
+                    h.setStyle("-fx-background-color: " + MUTED() + ";");
+                    h.setMaxWidth(Double.MAX_VALUE);
+                    h.setTextFill(Color.web(TEXT()));
+                    perfGrid.add(h, i, 0);
+                }
+                String[][] metrics = {
+                        { "User Approval Rate",
+                                totalUsers > 0 ? (activeUsers * 100 / totalUsers) + "%" : "N/A", "Good" },
+                        { "Total Donations Received",
+                                String.format("\u09F3%,.0f", totalDonated), "Good" },
+                        { "Average Donation",
+                                allDonations.isEmpty() ? "\u09F30"
+                                        : String.format("\u09F3%,.0f", totalDonated / allDonations.size()),
+                                "Good" },
+                        { "System Log Entries", String.valueOf(allLogs.size()), "Normal" },
+                        { "Database Health", "Operational", "Good" }
+                };
+                for (int r = 0; r < metrics.length; r++) {
+                    for (int c = 0; c < metrics[r].length; c++) {
+                        Label cell = new Label(metrics[r][c]);
+                        cell.setFont(Font.font("Segoe UI", c == 0 ? FontWeight.MEDIUM : FontWeight.NORMAL, 13));
+                        cell.setTextFill(Color.web(TEXT()));
+                        cell.setPadding(new Insets(10, 12, 10, 12));
+                        cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                        if (c == 2) {
+                            Label badge = new Label(metrics[r][c]);
+                            badge.setFont(Font.font("Segoe UI", 11));
+                            badge.setStyle("-fx-background-color: " + SECONDARY + "1A; -fx-text-fill: " + SECONDARY
+                                    + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+                            HBox w = new HBox(badge);
+                            w.setPadding(new Insets(10, 12, 10, 12));
+                            w.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                            perfGrid.add(w, c, r + 1);
+                            continue;
+                        }
+                        perfGrid.add(cell, c, r + 1);
+                    }
+                }
+                reportCard.getChildren().add(perfGrid);
+            }
+        }
+
+        return reportCard;
     }
 
     // ═══════════ ADMIN (USER MANAGEMENT) PAGE ═══════════
@@ -1654,11 +2024,11 @@ public class AdminController {
         Button editBtn = new Button("\u270E Edit Profile");
         Button delBtn = new Button("\u2716 Delete Profile");
 
-        String btnStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-radius: 4; -fx-padding: 8 16; -fx-cursor: hand; -fx-text-fill: " + TEXT() + ";";
-        editBtn.setStyle(btnStyle);
+        editBtn.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-radius: 4; -fx-padding: 8 16; -fx-cursor: hand; -fx-text-fill: " + TEXT() + ";");
         editBtn.setOnAction(e -> root.setCenter(buildEditChildForm(childId)));
-        delBtn.setStyle(btnStyle + "-fx-text-fill: " + DESTRUCTIVE + ";");
+        delBtn.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + DESTRUCTIVE
+                + "; -fx-border-radius: 4; -fx-padding: 8 16; -fx-cursor: hand; -fx-text-fill: " + DESTRUCTIVE + ";");
         delBtn.setOnAction(e -> {
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                     "Are you sure you want to delete " + name + "?",
@@ -1892,7 +2262,9 @@ public class AdminController {
         l.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         l.setTextFill(Color.web(TEXT()));
         l.setPrefWidth(120);
-        HBox.setHgrow(field instanceof Region ? (Region) field : new Region(), Priority.ALWAYS);
+        if (field instanceof Region r) {
+            HBox.setHgrow(r, Priority.ALWAYS);
+        }
         if (field instanceof TextField tf)
             tf.setMaxWidth(Double.MAX_VALUE);
         if (field instanceof ComboBox<?> cb)
