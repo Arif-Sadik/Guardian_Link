@@ -1,0 +1,4 @@
+[ERROR] /D:/Guardian_Link/src/main/java/controller/OrgAdminController.java:[1151,55] cannot find symbol
+[ERROR] /D:/Guardian_Link/src/main/java/controller/OrgAdminController.java:[1151,88] cannot find symbol
+[ERROR] /D:/Guardian_Link/src/main/java/controller/OrgAdminController.java:[1151,55] cannot find symbol
+[ERROR] /D:/Guardian_Link/src/main/java/controller/OrgAdminController.java:[1151,88] cannot find symbol

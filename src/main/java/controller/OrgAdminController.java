@@ -1148,7 +1148,7 @@ public class OrgAdminController {
         VBox ageField = formField("Age", "");
         VBox genderField = formField("Gender", "");
         VBox dobField = formField("Date of Birth", "");
-        VBox orgField = formField("Organization", user.getOrganization() != null ? user.getOrganization() : "");
+        VBox orgField = formField("Organization", "");
         VBox statusField = formField("Status", "Active");
 
         Button saveBtn = new Button("Save New Child");
