@@ -176,6 +176,14 @@ public class DBUtil {
         ps.setInt(5, 1);
         ps.executeUpdate();
 
+        // Support (approved)
+        ps.setString(1, "support");
+        ps.setString(2, PasswordUtil.hash("support123"));
+        ps.setString(3, "support@guardianlink.org");
+        ps.setString(4, "SUPPORT");
+        ps.setInt(5, 1);
+        ps.executeUpdate();
+
         ps.close();
     }
 
