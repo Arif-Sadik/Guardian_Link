@@ -8,11 +8,11 @@
 
 ## ✅ Caregivers Created (3 New Accounts)
 
-### Caregiver 1: Sarah
+### Caregiver 1: Jalal
 **Login Credentials:**
-- Username: `caregiver_sarah`
-- Password: `pass123`
-- Email: `sarah.caregiver@guardianlink.com`
+- Username: `caregiver_jalal`
+- Password: `care123`
+- Email: `jalal.caregiver@guardianlink.com`
 - Phone: `1234567890`
 - Database ID: 5
 - Status: Approved ✓
@@ -34,11 +34,11 @@
 
 ---
 
-### Caregiver 2: James
+### Caregiver 2: Karim
 **Login Credentials:**
-- Username: `caregiver_james`
-- Password: `pass123`
-- Email: `james.caregiver@guardianlink.com`
+- Username: `caregiver_karim`
+- Password: `care123`
+- Email: `karim.caregiver@guardianlink.com`
 - Phone: `9876543210`
 - Database ID: 6
 - Status: Approved ✓
@@ -60,11 +60,11 @@
 
 ---
 
-### Caregiver 3: Maria
+### Caregiver 3: Nasrin
 **Login Credentials:**
-- Username: `caregiver_maria`
-- Password: `pass123`
-- Email: `maria.caregiver@guardianlink.com`
+- Username: `caregiver_nasrin`
+- Password: `care123`
+- Email: `nasrin.caregiver@guardianlink.com`
 - Phone: `5551234567`
 - Database ID: 7
 - Status: Approved ✓
@@ -100,7 +100,7 @@
 - Organization Admin: 1 (orgadmin)
 - Donors: 1 (donor)
 - Support Users: 1 (support)
-- Caregivers: 3 (caregiver_sarah, caregiver_james, caregiver_maria)
+- Caregivers: 3 (caregiver_jalal, caregiver_karim, caregiver_nasrin)
 
 ---
 
@@ -108,9 +108,9 @@
 
 | Username | Password | Email |
 |----------|----------|-------|
-| caregiver_sarah | pass123 | sarah.caregiver@guardianlink.com |
-| caregiver_james | pass123 | james.caregiver@guardianlink.com |
-| caregiver_maria | pass123 | maria.caregiver@guardianlink.com |
+| caregiver_jalal | care123 | jalal.caregiver@guardianlink.com |
+| caregiver_karim | care123 | karim.caregiver@guardianlink.com |
+| caregiver_nasrin | care123 | nasrin.caregiver@guardianlink.com |
 
 ---
 
@@ -136,7 +136,7 @@
 
 ## 📝 Notes
 
-- All passwords are stored as plain text (`pass123`) for simplicity in testing
+- All passwords are stored as plain text (`care123`) for simplicity in testing
 - All caregivers are marked as **Approved** (approved = 1) so they appear in dropdowns
 - All children are assigned status **Active**
 - Each child belongs to organizations like "Bright Future Foundation", "Children Care Initiative", etc.

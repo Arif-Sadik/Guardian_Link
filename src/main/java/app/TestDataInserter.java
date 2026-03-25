@@ -9,6 +9,8 @@ import service.SystemLogService;
 import util.DBUtil;
 
 import java.sql.*;
+
+import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -29,17 +31,22 @@ public class TestDataInserter {
             
             // Check existing users
             System.out.println("Checking existing caregivers...");
+            
+            // Delete old test caregivers if they exist
+            System.out.println("\n--- Cleaning up old test caregivers ---");
+            deleteOldTestCaregivers();
+            
             listExistingCaregivers();
             
-            // Create 3 new caregivers
+            // Create 3 new caregivers with Bangladeshi names
             System.out.println("\n--- Creating 3 New Caregivers ---");
-            int caregiverId1 = createCaregiver("caregiver_sarah", "pass123", "sarah.caregiver@guardianlink.com", "1234567890");
-            int caregiverId2 = createCaregiver("caregiver_james", "pass123", "james.caregiver@guardianlink.com", "9876543210");
-            int caregiverId3 = createCaregiver("caregiver_maria", "pass123", "maria.caregiver@guardianlink.com", "5551234567");
+            int caregiverId1 = createCaregiver("caregiver_jalal", "care123", "jalal.caregiver@guardianlink.com", "1234567890");
+            int caregiverId2 = createCaregiver("caregiver_karim", "care123", "karim.caregiver@guardianlink.com", "9876543210");
+            int caregiverId3 = createCaregiver("caregiver_nasrin", "care123", "nasrin.caregiver@guardianlink.com", "5551234567");
             
             // Create and assign children to each caregiver
-            System.out.println("\n--- Creating Children for caregiver_sarah ---");
-            createChildrenForCaregiver(caregiverId1, "caregiver_sarah", new String[][] {
+            System.out.println("\n--- Creating Children for caregiver_jalal ---");
+            createChildrenForCaregiver(caregiverId1, "caregiver_jalal", new String[][] {
                 {"Emma Johnson", "8", "Female", "Bright Future Foundation", "2017-05-15"},
                 {"Ethan Johnson", "10", "Male", "Bright Future Foundation", "2015-03-20"},
                 {"Sophia Davis", "7", "Female", "Children Care Initiative", "2018-07-10"},
@@ -54,8 +61,8 @@ public class TestDataInserter {
                 {"Lucas Rodriguez", "11", "Male", "Youth Development Program", "2014-01-07"}
             });
             
-            System.out.println("\n--- Creating Children for caregiver_james ---");
-            createChildrenForCaregiver(caregiverId2, "caregiver_james", new String[][] {
+            System.out.println("\n--- Creating Children for caregiver_karim ---");
+            createChildrenForCaregiver(caregiverId2, "caregiver_karim", new String[][] {
                 {"Charlotte Brown", "8", "Female", "Bright Future Foundation", "2017-01-28"},
                 {"Benjamin Brown", "10", "Male", "Bright Future Foundation", "2015-04-12"},
                 {"Amelia Taylor", "7", "Female", "Children Care Initiative", "2018-09-09"},
@@ -70,8 +77,8 @@ public class TestDataInserter {
                 {"James White", "11", "Male", "Youth Development Program", "2014-11-19"}
             });
             
-            System.out.println("\n--- Creating Children for caregiver_maria ---");
-            createChildrenForCaregiver(caregiverId3, "caregiver_maria", new String[][] {
+            System.out.println("\n--- Creating Children for caregiver_nasrin ---");
+            createChildrenForCaregiver(caregiverId3, "caregiver_nasrin", new String[][] {
                 {"Grace Harris", "8", "Female", "Bright Future Foundation", "2017-06-07"},
                 {"Jacob Harris", "10", "Male", "Bright Future Foundation", "2015-02-14"},
                 {"Scarlett Martin", "7", "Female", "Children Care Initiative", "2018-10-31"},
@@ -91,13 +98,32 @@ public class TestDataInserter {
             listExistingCaregivers();
             
             System.out.println("\n=== LOGIN CREDENTIALS FOR NEW CAREGIVERS ===");
-            System.out.println("Caregiver 1: caregiver_sarah / pass123");
-            System.out.println("Caregiver 2: caregiver_james / pass123");
-            System.out.println("Caregiver 3: caregiver_maria / pass123");
+            System.out.println("Caregiver 1: caregiver_jalal / care123");
+            System.out.println("Caregiver 2: caregiver_karim / care123");
+            System.out.println("Caregiver 3: caregiver_nasrin / care123");
             
         } catch (Exception e) {
             System.err.println("Error during test data insertion: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private static void deleteOldTestCaregivers() {
+        try {
+            String[] oldUsernames = {"caregiver_sarah", "caregiver_james", "caregiver_maria"};
+            Connection conn = DBUtil.getConnection();
+            for (String oldUsername : oldUsernames) {
+                String sql = "DELETE FROM users WHERE username = ? AND role = 'CAREGIVER'";
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ps.setString(1, oldUsername);
+                int deleted = ps.executeUpdate();
+                if (deleted > 0) {
+                    System.out.println("✓ Deleted old caregiver: " + oldUsername);
+                }
+                ps.close();
+            }
+        } catch (SQLException e) {
+            System.out.println("✓ No old caregivers to delete or already deleted");
         }
     }
 
