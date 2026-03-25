@@ -2128,6 +2128,22 @@ public class AdminController {
         orgField.setPromptText("Organization");
         TextField dobField = new TextField();
         dobField.setPromptText("Date of Birth (YYYY-MM-DD)");
+        
+        // Caregiver assignment dropdown
+        ComboBox<String> caregiverBox = new ComboBox<>();
+        caregiverBox.setPromptText("Select Caregiver (Optional)");
+        caregiverBox.setMaxWidth(Double.MAX_VALUE);
+        
+        // Populate with available caregivers
+        java.util.List<User> allCaregivers = childService.getAllCaregivers();
+        java.util.Map<String, Integer> caregiverMap = new java.util.HashMap<>();
+        caregiverBox.getItems().add("-- No Assignment --");
+        for (User cg : allCaregivers) {
+            String displayName = cg.getUsername() + " (ID: " + cg.getId() + ")";
+            caregiverBox.getItems().add(displayName);
+            caregiverMap.put(displayName, cg.getId());
+        }
+        caregiverBox.setValue("-- No Assignment --");
 
         String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
@@ -2136,6 +2152,7 @@ public class AdminController {
         ageField.setStyle(fieldStyle);
         orgField.setStyle(fieldStyle);
         dobField.setStyle(fieldStyle);
+        caregiverBox.setStyle(fieldStyle);
 
         Button saveBtn = new Button("Save Child");
         saveBtn.setStyle("-fx-background-color: " + PRIMARY
@@ -2157,6 +2174,21 @@ public class AdminController {
             Child child = new Child(name, age, orgField.getText().trim(),
                     genderBox.getValue(), dobField.getText().trim(), "Active");
             childService.addChild(child);
+            
+            // Assign caregiver if selected
+            if (!caregiverBox.getValue().equals("-- No Assignment --")) {
+                Integer caregiverId = caregiverMap.get(caregiverBox.getValue());
+                if (caregiverId != null) {
+                    // Get the newly added child ID (this is a simplified approach)
+                    java.util.List<Child> allChildren = childService.getAllChildren();
+                    Child addedChild = allChildren.get(allChildren.size() - 1);
+                    childService.assignCaregiverToChild(addedChild.getId(), caregiverId, user.getUsername());
+                    systemLogService.save(new SystemLog("Caregiver Assignment",
+                            "Assigned child " + name + " to caregiver ID " + caregiverId, user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                }
+            }
+            
             systemLogService.save(new SystemLog("Data Update",
                     "Added new child: " + name, user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
@@ -2166,7 +2198,7 @@ public class AdminController {
         form.getChildren().addAll(
                 formRow("Name", nameField), formRow("Age", ageField),
                 formRow("Gender", genderBox), formRow("Organization", orgField),
-                formRow("Date of Birth", dobField), saveBtn);
+                formRow("Date of Birth", dobField), formRow("Assigned Caregiver", caregiverBox), saveBtn);
 
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);
@@ -2207,6 +2239,34 @@ public class AdminController {
         ComboBox<String> statusBox = new ComboBox<>();
         statusBox.getItems().addAll("Active", "Pending", "Inactive");
         statusBox.setValue(child.getStatus() != null ? child.getStatus() : "Active");
+        
+        // Caregiver assignment dropdown
+        ComboBox<String> caregiverBox = new ComboBox<>();
+        caregiverBox.setPromptText("Select Caregiver (Optional)");
+        caregiverBox.setMaxWidth(Double.MAX_VALUE);
+        
+        // Populate with available caregivers
+        java.util.List<User> allCaregivers = childService.getAllCaregivers();
+        java.util.Map<String, Integer> caregiverMap = new java.util.HashMap<>();
+        caregiverBox.getItems().add("-- No Assignment --");
+        for (User cg : allCaregivers) {
+            String displayName = cg.getUsername() + " (ID: " + cg.getId() + ")";
+            caregiverBox.getItems().add(displayName);
+            caregiverMap.put(displayName, cg.getId());
+        }
+        
+        // Set current caregiver if assigned
+        if (child.getAssignedCaregiverId() != null) {
+            User currentCaregiver = userService.findById(child.getAssignedCaregiverId());
+            if (currentCaregiver != null) {
+                String currentDisplay = currentCaregiver.getUsername() + " (ID: " + currentCaregiver.getId() + ")";
+                caregiverBox.setValue(currentDisplay);
+            } else {
+                caregiverBox.setValue("-- No Assignment --");
+            }
+        } else {
+            caregiverBox.setValue("-- No Assignment --");
+        }
 
         String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
@@ -2215,6 +2275,7 @@ public class AdminController {
         ageField.setStyle(fieldStyle);
         orgField.setStyle(fieldStyle);
         dobField.setStyle(fieldStyle);
+        caregiverBox.setStyle(fieldStyle);
 
         Button saveBtn = new Button("Update Child");
         saveBtn.setStyle("-fx-background-color: " + PRIMARY
@@ -2233,12 +2294,40 @@ public class AdminController {
                 new Alert(Alert.AlertType.WARNING, "Age must be a number.").show();
                 return;
             }
+            
+            // Track previous caregiver for notifications
+            Integer previousCaregiverId = child.getAssignedCaregiverId();
+            String selectedCaregiver = caregiverBox.getValue();
+            Integer newCaregiverId = null;
+            
+            if (!selectedCaregiver.equals("-- No Assignment --")) {
+                newCaregiverId = caregiverMap.get(selectedCaregiver);
+            }
+            
+            // Update child details
             child.setName(name);
             child.setAge(age);
             child.setGender(genderBox.getValue());
             child.setOrganization(orgField.getText().trim());
             child.setDateOfBirth(dobField.getText().trim());
             child.setStatus(statusBox.getValue());
+            
+            // Handle caregiver changes
+            if (previousCaregiverId != null && newCaregiverId == null) {
+                // Caregiver was removed
+                childService.removeCaregiverFromChild(childId, user.getUsername());
+                child.setAssignedCaregiverId(null);
+            } else if (newCaregiverId != null && (previousCaregiverId == null || !previousCaregiverId.equals(newCaregiverId))) {
+                // Caregiver was assigned or changed
+                child.setAssignedCaregiverId(newCaregiverId);
+                childService.assignCaregiverToChild(childId, newCaregiverId, user.getUsername());
+                systemLogService.save(new SystemLog("Caregiver Assignment",
+                        "Assigned child " + name + " to caregiver ID " + newCaregiverId, user.getUsername(),
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            } else {
+                child.setAssignedCaregiverId(newCaregiverId);
+            }
+            
             childService.updateChild(child);
             systemLogService.save(new SystemLog("Data Update",
                     "Updated child profile: " + name, user.getUsername(),
@@ -2249,7 +2338,8 @@ public class AdminController {
         form.getChildren().addAll(
                 formRow("Name", nameField), formRow("Age", ageField),
                 formRow("Gender", genderBox), formRow("Organization", orgField),
-                formRow("Date of Birth", dobField), formRow("Status", statusBox), saveBtn);
+                formRow("Date of Birth", dobField), formRow("Status", statusBox),
+                formRow("Assigned Caregiver", caregiverBox), saveBtn);
 
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);

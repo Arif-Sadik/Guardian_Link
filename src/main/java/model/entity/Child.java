@@ -13,6 +13,7 @@ public class Child {
     private String gender;
     private String dateOfBirth;
     private String status; // Active, Graduated, Archived
+    private Integer assignedCaregiverId; // ID of the assigned caregiver (nullable)
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -91,6 +92,14 @@ public class Child {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Integer getAssignedCaregiverId() {
+        return assignedCaregiverId;
+    }
+
+    public void setAssignedCaregiverId(Integer assignedCaregiverId) {
+        this.assignedCaregiverId = assignedCaregiverId;
     }
 
     @Override

@@ -57,7 +57,7 @@ public class ChildRepository {
      * Inserts a new child into the database.
      */
     public void save(Child child) {
-        String sql = "INSERT INTO children (name, age, organization, gender, date_of_birth, status) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO children (name, age, organization, gender, date_of_birth, status, assigned_caregiver_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try {
             PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
             ps.setString(1, child.getName());
@@ -66,6 +66,11 @@ public class ChildRepository {
             ps.setString(4, child.getGender());
             ps.setString(5, child.getDateOfBirth());
             ps.setString(6, child.getStatus() != null ? child.getStatus() : "Active");
+            if (child.getAssignedCaregiverId() != null) {
+                ps.setInt(7, child.getAssignedCaregiverId());
+            } else {
+                ps.setNull(7, java.sql.Types.INTEGER);
+            }
             ps.executeUpdate();
             ps.close();
         } catch (SQLException e) {
@@ -77,7 +82,7 @@ public class ChildRepository {
      * Updates an existing child record.
      */
     public boolean updateChild(Child child) {
-        String sql = "UPDATE children SET name = ?, age = ?, organization = ?, gender = ?, date_of_birth = ?, status = ? WHERE id = ?";
+        String sql = "UPDATE children SET name = ?, age = ?, organization = ?, gender = ?, date_of_birth = ?, status = ?, assigned_caregiver_id = ? WHERE id = ?";
         try {
             PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
             ps.setString(1, child.getName());
@@ -86,7 +91,12 @@ public class ChildRepository {
             ps.setString(4, child.getGender());
             ps.setString(5, child.getDateOfBirth());
             ps.setString(6, child.getStatus());
-            ps.setInt(7, child.getId());
+            if (child.getAssignedCaregiverId() != null) {
+                ps.setInt(7, child.getAssignedCaregiverId());
+            } else {
+                ps.setNull(7, java.sql.Types.INTEGER);
+            }
+            ps.setInt(8, child.getId());
             int rows = ps.executeUpdate();
             ps.close();
             return rows > 0;
@@ -114,6 +124,44 @@ public class ChildRepository {
     }
 
     /**
+     * Finds all children assigned to a specific caregiver.
+     */
+    public List<Child> findByCaregiver(int caregiverId) {
+        List<Child> children = new ArrayList<>();
+        String sql = "SELECT * FROM children WHERE assigned_caregiver_id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setInt(1, caregiverId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                children.add(mapRow(rs));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return children;
+    }
+
+    /**
+     * Removes caregiver assignment from a child (sets to null).
+     */
+    public boolean removeCaregiverAssignment(int childId) {
+        String sql = "UPDATE children SET assigned_caregiver_id = NULL WHERE id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setInt(1, childId);
+            int rows = ps.executeUpdate();
+            ps.close();
+            return rows > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
      * Maps a ResultSet row to a Child object.
      */
     private Child mapRow(ResultSet rs) throws SQLException {
@@ -125,6 +173,13 @@ public class ChildRepository {
         child.setGender(rs.getString("gender"));
         child.setDateOfBirth(rs.getString("date_of_birth"));
         child.setStatus(rs.getString("status"));
+        
+        // Handle assigned caregiver ID (nullable)
+        Object caregiverId = rs.getObject("assigned_caregiver_id");
+        if (caregiverId != null) {
+            child.setAssignedCaregiverId((Integer) caregiverId);
+        }
+        
         return child;
     }
 }

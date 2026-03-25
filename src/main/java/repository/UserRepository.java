@@ -167,6 +167,27 @@ public class UserRepository {
         return null;
     }
 
+    /**
+     * Finds all caregivers in the system (approved).
+     */
+    public List<User> findAllCaregivers() {
+        List<User> caregivers = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE role = ? AND approved = 1";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setString(1, UserRole.CAREGIVER.name());
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                caregivers.add(mapRow(rs));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return caregivers;
+    }
+
     // ── Helper ─────────────────────────────────────────────────
 
     /**

@@ -1,6 +1,7 @@
 package controller;
 
 import exception.UserNotApprovedException;
+import exception.InvalidContactException;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -14,6 +15,7 @@ import model.user.*;
 import service.AuthService;
 import service.UserService;
 import util.PasswordUtil;
+import util.ContactValidator;
 
 /**
  * Login screen — clean split-panel layout.
@@ -536,6 +538,8 @@ public class AuthController {
             String username = usernameField.getText().trim();
             String password = passwordField.getText();
             String confirm = confirmField.getText();
+            String email = emailField.getText().trim();
+            String phoneNumber = phoneField.getText().trim();
 
             if (username.isEmpty() || password.isEmpty()) {
                 errorLabel.setText("Username and password are required.");
@@ -550,12 +554,21 @@ public class AuthController {
                 return;
             }
 
-            Donor donor = new Donor(username, PasswordUtil.hash(password));
-            donor.setApproved(true); // Auto-approve for easy login
-            if (userService.createUser(donor)) {
-                showSuccessPage("Donor");
-            } else {
-                errorLabel.setText("Username already exists. Please choose a different one.");
+            try {
+                // Validate email and phone number
+                ContactValidator.validateContact(email, phoneNumber);
+
+                Donor donor = new Donor(username, PasswordUtil.hash(password));
+                donor.setEmail(email);
+                donor.setPhoneNumber(phoneNumber);
+                donor.setApproved(true); // Auto-approve for easy login
+                if (userService.createUser(donor)) {
+                    showSuccessPage("Donor");
+                } else {
+                    errorLabel.setText("Username already exists. Please choose a different one.");
+                }
+            } catch (InvalidContactException ex) {
+                errorLabel.setText(ex.getMessage());
             }
         });
         VBox.setMargin(registerBtn, new Insets(8, 0, 16, 0));
@@ -733,6 +746,8 @@ public class AuthController {
             String username = usernameField.getText().trim();
             String password = passwordField.getText();
             String confirm = confirmField.getText();
+            String email = emailField.getText().trim();
+            String phoneNumber = phoneField.getText().trim();
 
             if (username.isEmpty() || password.isEmpty()) {
                 errorLabel.setText("Username and password are required.");
@@ -747,12 +762,21 @@ public class AuthController {
                 return;
             }
 
-            Caregiver caregiver = new Caregiver(username, PasswordUtil.hash(password));
-            caregiver.setApproved(true); // Auto-approve for easy login
-            if (userService.createUser(caregiver)) {
-                showSuccessPage("Caregiver");
-            } else {
-                errorLabel.setText("Username already exists. Please choose a different one.");
+            try {
+                // Validate email and phone number
+                ContactValidator.validateContact(email, phoneNumber);
+
+                Caregiver caregiver = new Caregiver(username, PasswordUtil.hash(password));
+                caregiver.setEmail(email);
+                caregiver.setPhoneNumber(phoneNumber);
+                caregiver.setApproved(true); // Auto-approve for easy login
+                if (userService.createUser(caregiver)) {
+                    showSuccessPage("Caregiver");
+                } else {
+                    errorLabel.setText("Username already exists. Please choose a different one.");
+                }
+            } catch (InvalidContactException ex) {
+                errorLabel.setText(ex.getMessage());
             }
         });
         VBox.setMargin(registerBtn, new Insets(8, 0, 16, 0));
@@ -923,6 +947,8 @@ public class AuthController {
             String username = usernameField.getText().trim();
             String password = passwordField.getText();
             String confirm = confirmField.getText();
+            String email = emailField.getText().trim();
+            String phoneNumber = phoneField.getText().trim();
 
             if (username.isEmpty() || password.isEmpty()) {
                 errorLabel.setText("Username and password are required.");
@@ -937,12 +963,21 @@ public class AuthController {
                 return;
             }
 
-            Support support = new Support(username, PasswordUtil.hash(password));
-            support.setApproved(true); // Auto-approve for easy login
-            if (userService.createUser(support)) {
-                showSuccessPage("Support");
-            } else {
-                errorLabel.setText("Username already exists. Please choose a different one.");
+            try {
+                // Validate email and phone number
+                ContactValidator.validateContact(email, phoneNumber);
+
+                Support support = new Support(username, PasswordUtil.hash(password));
+                support.setEmail(email);
+                support.setPhoneNumber(phoneNumber);
+                support.setApproved(true); // Auto-approve for easy login
+                if (userService.createUser(support)) {
+                    showSuccessPage("Support");
+                } else {
+                    errorLabel.setText("Username already exists. Please choose a different one.");
+                }
+            } catch (InvalidContactException ex) {
+                errorLabel.setText(ex.getMessage());
             }
         });
         VBox.setMargin(registerBtn, new Insets(8, 0, 16, 0));
