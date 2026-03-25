@@ -42,14 +42,14 @@ public class DatabaseMigration {
 
     private static void migrateUsersTable(Connection conn) {
         try {
-            // Check if phone_number column exists
             DatabaseMetaData metadata = conn.getMetaData();
-            ResultSet columns = metadata.getColumns(null, null, "users", "phone_number");
+            Connection connRef = conn;
             
+            // Check if phone_number column exists
+            ResultSet columns = metadata.getColumns(null, null, "users", "phone_number");
             if (!columns.next()) {
-                // Column doesn't exist, add it
                 String sql = "ALTER TABLE users ADD COLUMN phone_number VARCHAR(20) DEFAULT NULL";
-                Statement stmt = conn.createStatement();
+                Statement stmt = connRef.createStatement();
                 stmt.execute(sql);
                 stmt.close();
                 System.out.println("✓ Added phone_number column to users table");
@@ -57,6 +57,19 @@ public class DatabaseMigration {
                 System.out.println("✓ phone_number column already exists in users table");
             }
             columns.close();
+            
+            // Check if organization column exists
+            ResultSet orgColumns = metadata.getColumns(null, null, "users", "organization");
+            if (!orgColumns.next()) {
+                String sql = "ALTER TABLE users ADD COLUMN organization VARCHAR(255) DEFAULT NULL";
+                Statement stmt = connRef.createStatement();
+                stmt.execute(sql);
+                stmt.close();
+                System.out.println("✓ Added organization column to users table");
+            } else {
+                System.out.println("✓ organization column already exists in users table");
+            }
+            orgColumns.close();
         } catch (SQLException e) {
             if (e.getMessage().contains("already")) {
                 System.out.println("✓ phone_number column already exists");

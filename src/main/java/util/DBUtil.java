@@ -49,15 +49,24 @@ public class DBUtil {
 
             stmt.execute("""
                         CREATE TABLE IF NOT EXISTS children (
-                            id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                            name           TEXT,
-                            age            INTEGER,
-                            organization   TEXT,
-                            gender         TEXT,
-                            date_of_birth  TEXT,
-                            status         TEXT
+                            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name                    TEXT,
+                            age                     INTEGER,
+                            organization            TEXT,
+                            gender                  TEXT,
+                            date_of_birth           TEXT,
+                            status                  TEXT,
+                            assigned_caregiver_id   INTEGER DEFAULT NULL
                         )
                     """);
+
+            // ── Add missing columns to children table (for existing tables) ──────────────
+
+            try {
+                stmt.execute("ALTER TABLE children ADD COLUMN assigned_caregiver_id INTEGER DEFAULT NULL");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
 
             stmt.execute("""
                         CREATE TABLE IF NOT EXISTS medical_records (
@@ -118,6 +127,20 @@ public class DBUtil {
                             permissions TEXT
                         )
                     """);
+
+            // ── Add missing columns to users table ──────────────
+
+            try {
+                stmt.execute("ALTER TABLE users ADD COLUMN phone_number VARCHAR(20) DEFAULT NULL");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
+
+            try {
+                stmt.execute("ALTER TABLE users ADD COLUMN organization VARCHAR(255) DEFAULT NULL");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
 
             // ── Seed data (only on first run) ────────────────
 
@@ -181,6 +204,38 @@ public class DBUtil {
         ps.setString(2, PasswordUtil.hash("support123"));
         ps.setString(3, "support@guardianlink.org");
         ps.setString(4, "SUPPORT");
+        ps.setInt(5, 1);
+        ps.executeUpdate();
+
+        // Caregiver 1 (approved)
+        ps.setString(1, "caregiver_jalal");
+        ps.setString(2, PasswordUtil.hash("care123"));
+        ps.setString(3, "jalal@guardianlink.org");
+        ps.setString(4, "CAREGIVER");
+        ps.setInt(5, 1);
+        ps.executeUpdate();
+
+        // Caregiver 2 (approved)
+        ps.setString(1, "caregiver_fatima");
+        ps.setString(2, PasswordUtil.hash("care456"));
+        ps.setString(3, "fatima@guardianlink.org");
+        ps.setString(4, "CAREGIVER");
+        ps.setInt(5, 1);
+        ps.executeUpdate();
+
+        // Caregiver 3 (approved)
+        ps.setString(1, "caregiver_ahmed");
+        ps.setString(2, PasswordUtil.hash("care789"));
+        ps.setString(3, "ahmed@guardianlink.org");
+        ps.setString(4, "CAREGIVER");
+        ps.setInt(5, 1);
+        ps.executeUpdate();
+
+        // Caregiver 4 (approved)
+        ps.setString(1, "caregiver_sara");
+        ps.setString(2, PasswordUtil.hash("care012"));
+        ps.setString(3, "sara@guardianlink.org");
+        ps.setString(4, "CAREGIVER");
         ps.setInt(5, 1);
         ps.executeUpdate();
 

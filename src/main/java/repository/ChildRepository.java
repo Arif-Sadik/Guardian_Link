@@ -54,12 +54,13 @@ public class ChildRepository {
     }
 
     /**
-     * Inserts a new child into the database.
+     * Inserts a new child into the database and returns the generated ID.
      */
-    public void save(Child child) {
+    public int save(Child child) {
+        // Try with the new schema first (with assigned_caregiver_id)
         String sql = "INSERT INTO children (name, age, organization, gender, date_of_birth, status, assigned_caregiver_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try {
-            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, child.getName());
             ps.setInt(2, child.getAge());
             ps.setString(3, child.getOrganization());
@@ -72,9 +73,38 @@ public class ChildRepository {
                 ps.setNull(7, java.sql.Types.INTEGER);
             }
             ps.executeUpdate();
+            ResultSet generatedKeys = ps.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                int id = generatedKeys.getInt(1);
+                ps.close();
+                return id;
+            }
             ps.close();
+            return -1;
         } catch (SQLException e) {
-            e.printStackTrace();
+            // If the column doesn't exist, try without it
+            String fallbackSql = "INSERT INTO children (name, age, organization, gender, date_of_birth, status) VALUES (?, ?, ?, ?, ?, ?)";
+            try {
+                PreparedStatement ps = DBUtil.getConnection().prepareStatement(fallbackSql, Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, child.getName());
+                ps.setInt(2, child.getAge());
+                ps.setString(3, child.getOrganization());
+                ps.setString(4, child.getGender());
+                ps.setString(5, child.getDateOfBirth());
+                ps.setString(6, child.getStatus() != null ? child.getStatus() : "Active");
+                ps.executeUpdate();
+                ResultSet generatedKeys = ps.getGeneratedKeys();
+                if (generatedKeys.next()) {
+                    int id = generatedKeys.getInt(1);
+                    ps.close();
+                    return id;
+                }
+                ps.close();
+                return -1;
+            } catch (SQLException fallbackError) {
+                fallbackError.printStackTrace();
+                return -1;
+            }
         }
     }
 
@@ -174,10 +204,14 @@ public class ChildRepository {
         child.setDateOfBirth(rs.getString("date_of_birth"));
         child.setStatus(rs.getString("status"));
         
-        // Handle assigned caregiver ID (nullable)
-        Object caregiverId = rs.getObject("assigned_caregiver_id");
-        if (caregiverId != null) {
-            child.setAssignedCaregiverId((Integer) caregiverId);
+        // Handle assigned caregiver ID (nullable and may not exist in all systems)
+        try {
+            Object caregiverId = rs.getObject("assigned_caregiver_id");
+            if (caregiverId != null) {
+                child.setAssignedCaregiverId((Integer) caregiverId);
+            }
+        } catch (SQLException e) {
+            // Column doesn't exist, skip it
         }
         
         return child;

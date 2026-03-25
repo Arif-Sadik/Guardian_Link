@@ -628,24 +628,36 @@ public class SupportController {
         TextArea descArea = new TextArea();
         descArea.setPromptText("Describe the incident in detail...");
         descArea.setPrefRowCount(5);
+        
+        // Validation error label
+        Label validationError = new Label();
+        validationError.setStyle("-fx-text-fill: #d32f2f; -fx-font-size: 12px;");
+        validationError.setVisible(false);
+        validationError.setWrapText(true);
 
         Button submit = new Button("Submit Incident Report");
         submit.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
         submit.setOnAction(e -> {
+            // Clear previous error
+            validationError.setVisible(false);
+            validationError.setText("");
+            
             String descText = descArea.getText().trim();
             if (descText.isEmpty()) {
-                showAlert("Warning", "Please enter a description.");
+                validationError.setText("⚠ Please enter a description.");
+                validationError.setVisible(true);
                 return;
             }
             String logDesc = "[" + severity.getValue() + "] " + category.getValue() + ": " + descText;
             systemLogService.save(new SystemLog("Incident", logDesc, user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            showAlert("Success", "Incident report submitted successfully!");
+            Alert success = new Alert(Alert.AlertType.INFORMATION, "Incident report submitted successfully!");
+            success.showAndWait();
             root.setCenter(buildReportsPage());
         });
 
-        formCard.getChildren().addAll(catLabel, category, sevLabel, severity, descLabel, descArea, new Separator(),
+        formCard.getChildren().addAll(catLabel, category, sevLabel, severity, descLabel, descArea, validationError, new Separator(),
                 submit);
         page.getChildren().addAll(backBtn, title, formCard);
         return wrapScroll(page);

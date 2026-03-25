@@ -471,6 +471,14 @@ public class AuthController {
         styleInput(phoneField);
         VBox.setMargin(phoneField, new Insets(6, 0, 16, 0));
 
+        Label orgLabel = new Label("Organization Name");
+        orgLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        orgLabel.setTextFill(Color.web(util.ThemeManager.getText()));
+        TextField orgField = new TextField();
+        orgField.setPromptText("Enter organization name (optional)");
+        styleInput(orgField);
+        VBox.setMargin(orgField, new Insets(6, 0, 16, 0));
+
         Label paymentLabel = new Label("Preferred Payment Method");
         paymentLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         paymentLabel.setTextFill(Color.web(util.ThemeManager.getText()));
@@ -540,6 +548,7 @@ public class AuthController {
             String confirm = confirmField.getText();
             String email = emailField.getText().trim();
             String phoneNumber = phoneField.getText().trim();
+            String organization = orgField.getText().trim();
 
             if (username.isEmpty() || password.isEmpty()) {
                 errorLabel.setText("Username and password are required.");
@@ -561,6 +570,7 @@ public class AuthController {
                 Donor donor = new Donor(username, PasswordUtil.hash(password));
                 donor.setEmail(email);
                 donor.setPhoneNumber(phoneNumber);
+                donor.setOrganization(organization);
                 donor.setApproved(true); // Auto-approve for easy login
                 if (userService.createUser(donor)) {
                     showSuccessPage("Donor");
@@ -584,6 +594,7 @@ public class AuthController {
                 confirmLabel, confirmField,
                 emailLabel, emailField,
                 phoneLabel, phoneField,
+                orgLabel, orgField,
                 paymentLabel, paymentCombo,
                 errorLabel, registerBtn, backLink);
 
@@ -748,6 +759,7 @@ public class AuthController {
             String confirm = confirmField.getText();
             String email = emailField.getText().trim();
             String phoneNumber = phoneField.getText().trim();
+            String organization = orgField.getText().trim();
 
             if (username.isEmpty() || password.isEmpty()) {
                 errorLabel.setText("Username and password are required.");
@@ -769,6 +781,7 @@ public class AuthController {
                 Caregiver caregiver = new Caregiver(username, PasswordUtil.hash(password));
                 caregiver.setEmail(email);
                 caregiver.setPhoneNumber(phoneNumber);
+                caregiver.setOrganization(organization);
                 caregiver.setApproved(true); // Auto-approve for easy login
                 if (userService.createUser(caregiver)) {
                     showSuccessPage("Caregiver");

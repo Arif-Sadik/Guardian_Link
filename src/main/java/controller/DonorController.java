@@ -803,17 +803,30 @@ public class DonorController {
         submit.setMaxWidth(Double.MAX_VALUE);
         submit.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 12; -fx-font-weight: bold; -fx-cursor: hand;");
+        
+        // Validation error label
+        Label validationError = new Label();
+        validationError.setStyle("-fx-text-fill: #d32f2f; -fx-font-size: 12px;");
+        validationError.setVisible(false);
+        validationError.setWrapText(true);
+        
         submit.setOnAction(e -> {
+            // Clear previous error
+            validationError.setVisible(false);
+            validationError.setText("");
+            
             String amtText = amtField.getText().trim();
             if (amtText.isEmpty()) {
-                showAlert("Warning", "Amount is required.");
+                validationError.setText("⚠ Amount is required.");
+                validationError.setVisible(true);
                 return;
             }
             double amount;
             try {
                 amount = Double.parseDouble(amtText);
             } catch (NumberFormatException ex) {
-                showAlert("Warning", "Amount must be a number.");
+                validationError.setText("⚠ Amount must be a valid number.");
+                validationError.setVisible(true);
                 return;
             }
             Donation d = new Donation(user.getId(), 0, amount, "General Welfare", LocalDate.now().toString());
@@ -821,11 +834,12 @@ public class DonorController {
             systemLogService
                     .save(new SystemLog("Donation", "Submitted donation of \u09F3" + amtText, user.getUsername(),
                             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            showAlert("Success", "Donation submitted successfully!");
+            Alert success = new Alert(Alert.AlertType.INFORMATION, "Donation submitted successfully!");
+            success.showAndWait();
             root.setCenter(buildSponsorshipPage());
         });
 
-        form.getChildren().addAll(amtLabel, amtField, msgLabel, msgArea, submit);
+        form.getChildren().addAll(validationError, amtLabel, amtField, msgLabel, msgArea, submit);
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);
     }

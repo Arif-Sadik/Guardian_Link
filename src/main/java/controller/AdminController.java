@@ -29,6 +29,10 @@ import service.DonationService;
 import service.SystemLogService;
 import service.UserService;
 import service.RolePermissionsService;
+import service.MedicalRecordService;
+import service.EducationRecordService;
+import model.entity.MedicalRecord;
+import model.entity.EducationRecord;
 import util.ThemeManager;
 import util.PasswordUtil;
 
@@ -51,6 +55,8 @@ public class AdminController {
     private final DonationService donationService = new DonationService();
     private final SystemLogService systemLogService = new SystemLogService();
     private final RolePermissionsService rolePermissionsService = new RolePermissionsService();
+    private final MedicalRecordService medicalRecordService = new MedicalRecordService();
+    private final EducationRecordService educationRecordService = new EducationRecordService();
     private BorderPane root;
     private VBox sidebar;
     private String activePage = "dashboard";
@@ -712,16 +718,19 @@ public class AdminController {
             Hyperlink viewLink = new Hyperlink("View");
             viewLink.setFont(Font.font("Segoe UI", 13));
             viewLink.setTextFill(Color.web(PRIMARY));
+            viewLink.setStyle("-fx-text-decoration: none;");
             viewLink.setOnAction(e -> root.setCenter(buildChildProfileDetailView(childId)));
 
             Hyperlink editLink = new Hyperlink("Edit");
             editLink.setFont(Font.font("Segoe UI", 13));
             editLink.setTextFill(Color.web(PRIMARY));
+            editLink.setStyle("-fx-text-decoration: none;");
             editLink.setOnAction(e -> root.setCenter(buildEditChildForm(childId)));
 
             Hyperlink deleteLink = new Hyperlink("Delete");
             deleteLink.setFont(Font.font("Segoe UI", 13));
             deleteLink.setTextFill(Color.web(DESTRUCTIVE));
+            deleteLink.setStyle("-fx-text-decoration: none;");
             deleteLink.setOnAction(e -> {
                 Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                         "Are you sure you want to delete " + childName + "?",
@@ -2124,10 +2133,29 @@ public class AdminController {
         ComboBox<String> genderBox = new ComboBox<>();
         genderBox.getItems().addAll("Male", "Female");
         genderBox.setPromptText("Gender");
-        TextField orgField = new TextField();
-        orgField.setPromptText("Organization");
-        TextField dobField = new TextField();
-        dobField.setPromptText("Date of Birth (YYYY-MM-DD)");
+        
+        // Organization dropdown with predefined values
+        ComboBox<String> orgBox = new ComboBox<>();
+        orgBox.getItems().addAll("Hope Foundation", "Bright Future NGO", "Sunrise Academy", "Community Care Center", "Other");
+        orgBox.setPromptText("Select Organization");
+        orgBox.setMaxWidth(Double.MAX_VALUE);
+        orgBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
+        
+        // Date picker with calendar for Date of Birth
+        javafx.scene.control.DatePicker dobPicker = new javafx.scene.control.DatePicker();
+        dobPicker.setPromptText("Select Date of Birth");
+        dobPicker.setMaxWidth(Double.MAX_VALUE);
+        dobPicker.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
+        
+        // Status dropdown
+        ComboBox<String> statusBox = new ComboBox<>();
+        statusBox.getItems().addAll("Active", "Graduated", "Archived");
+        statusBox.setValue("Active");
+        statusBox.setMaxWidth(Double.MAX_VALUE);
+        statusBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
         
         // Caregiver assignment dropdown
         ComboBox<String> caregiverBox = new ComboBox<>();
@@ -2144,61 +2172,90 @@ public class AdminController {
             caregiverMap.put(displayName, cg.getId());
         }
         caregiverBox.setValue("-- No Assignment --");
+        caregiverBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
 
         String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
                 + TEXT() + ";";
         nameField.setStyle(fieldStyle);
         ageField.setStyle(fieldStyle);
-        orgField.setStyle(fieldStyle);
-        dobField.setStyle(fieldStyle);
-        caregiverBox.setStyle(fieldStyle);
+        genderBox.setStyle(fieldStyle);
+
+        // Validation error label
+        Label validationError = new Label();
+        validationError.setStyle("-fx-text-fill: #d32f2f; -fx-font-size: 12px;");
+        validationError.setVisible(false);
+        validationError.setWrapText(true);
 
         Button saveBtn = new Button("Save Child");
         saveBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 13px; -fx-cursor: hand; -fx-font-weight: bold;");
         saveBtn.setOnAction(e -> {
+            // Clear previous error
+            validationError.setVisible(false);
+            validationError.setText("");
+            
             String name = nameField.getText().trim();
             String ageText = ageField.getText().trim();
             if (name.isEmpty() || ageText.isEmpty()) {
-                new Alert(Alert.AlertType.WARNING, "Name and Age are required.").show();
+                validationError.setText("⚠ Name and Age are required.");
+                validationError.setVisible(true);
                 return;
             }
             int age;
             try {
                 age = Integer.parseInt(ageText);
             } catch (NumberFormatException ex) {
-                new Alert(Alert.AlertType.WARNING, "Age must be a number.").show();
+                validationError.setText("⚠ Age must be a number. " + ageText + " is not valid.");
+                validationError.setVisible(true);
                 return;
             }
-            Child child = new Child(name, age, orgField.getText().trim(),
-                    genderBox.getValue(), dobField.getText().trim(), "Active");
-            childService.addChild(child);
             
-            // Assign caregiver if selected
-            if (!caregiverBox.getValue().equals("-- No Assignment --")) {
-                Integer caregiverId = caregiverMap.get(caregiverBox.getValue());
-                if (caregiverId != null) {
-                    // Get the newly added child ID (this is a simplified approach)
-                    java.util.List<Child> allChildren = childService.getAllChildren();
-                    Child addedChild = allChildren.get(allChildren.size() - 1);
-                    childService.assignCaregiverToChild(addedChild.getId(), caregiverId, user.getUsername());
-                    systemLogService.save(new SystemLog("Caregiver Assignment",
-                            "Assigned child " + name + " to caregiver ID " + caregiverId, user.getUsername(),
+            String organization = orgBox.getValue() != null ? orgBox.getValue() : "";
+            String dateOfBirth = dobPicker.getValue() != null ? dobPicker.getValue().toString() : "";
+            String gender = genderBox.getValue() != null ? genderBox.getValue() : "";
+            String status = statusBox.getValue() != null ? statusBox.getValue() : "Active";
+            
+            try {
+                Child child = new Child(name, age, organization, gender, dateOfBirth, status);
+                int childId = childService.addChild(child);
+                
+                if (childId > 0) {
+                    // Assign caregiver if selected
+                    if (!caregiverBox.getValue().equals("-- No Assignment --")) {
+                        Integer caregiverId = caregiverMap.get(caregiverBox.getValue());
+                        if (caregiverId != null) {
+                            childService.assignCaregiverToChild(childId, caregiverId, user.getUsername());
+                            systemLogService.save(new SystemLog("Caregiver Assignment",
+                                    "Assigned child " + name + " to caregiver ID " + caregiverId, user.getUsername(),
+                                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                        }
+                    }
+                    
+                    systemLogService.save(new SystemLog("Data Update",
+                            "Added new child: " + name, user.getUsername(),
                             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                    
+                    Alert success = new Alert(Alert.AlertType.INFORMATION, "Child added successfully!");
+                    success.showAndWait();
+                    root.setCenter(buildChildrenPage());
+                } else {
+                    validationError.setText("⚠ Failed to save child to database. Please try again.");
+                    validationError.setVisible(true);
                 }
+            } catch (Exception ex) {
+                validationError.setText("⚠ Error adding child: " + ex.getMessage());
+                validationError.setVisible(true);
+                ex.printStackTrace();
             }
-            
-            systemLogService.save(new SystemLog("Data Update",
-                    "Added new child: " + name, user.getUsername(),
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            root.setCenter(buildChildrenPage());
         });
-
+            
         form.getChildren().addAll(
+                validationError,
                 formRow("Name", nameField), formRow("Age", ageField),
-                formRow("Gender", genderBox), formRow("Organization", orgField),
-                formRow("Date of Birth", dobField), formRow("Assigned Caregiver", caregiverBox), saveBtn);
+                formRow("Gender", genderBox), formRow("Organization", orgBox),
+                formRow("Date of Birth", dobPicker), formRow("Status", statusBox), formRow("Assigned Caregiver", caregiverBox), saveBtn);
 
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);
@@ -2237,7 +2294,7 @@ public class AdminController {
         TextField orgField = new TextField(child.getOrganization() != null ? child.getOrganization() : "");
         TextField dobField = new TextField(child.getDateOfBirth() != null ? child.getDateOfBirth() : "");
         ComboBox<String> statusBox = new ComboBox<>();
-        statusBox.getItems().addAll("Active", "Pending", "Inactive");
+        statusBox.getItems().addAll("Active", "Graduated", "Archived");
         statusBox.setValue(child.getStatus() != null ? child.getStatus() : "Active");
         
         // Caregiver assignment dropdown
@@ -2277,21 +2334,82 @@ public class AdminController {
         dobField.setStyle(fieldStyle);
         caregiverBox.setStyle(fieldStyle);
 
+        // ═══════════ MEDICAL RECORD SECTION ═══════════
+        Label medicalTitle = new Label("Medical Information");
+        medicalTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+        medicalTitle.setTextFill(Color.web(TEXT()));
+        
+        TextField medicalBloodGroup = new TextField();
+        medicalBloodGroup.setPromptText("Blood Group");
+        medicalBloodGroup.setStyle(fieldStyle);
+        TextField medicalCondition = new TextField();
+        medicalCondition.setPromptText("Medical Condition");
+        medicalCondition.setStyle(fieldStyle);
+        TextField medicalCheckup = new TextField();
+        medicalCheckup.setPromptText("Last Checkup Date");
+        medicalCheckup.setStyle(fieldStyle);
+        
+        // Load existing medical record if available
+        java.util.List<MedicalRecord> medRecords = medicalRecordService.getRecordsByChildId(child.getId());
+        if (!medRecords.isEmpty()) {
+            MedicalRecord medRec = medRecords.get(0);
+            medicalBloodGroup.setText(medRec.getBloodGroup() != null ? medRec.getBloodGroup() : "");
+            medicalCondition.setText(medRec.getMedicalCondition() != null ? medRec.getMedicalCondition() : "");
+            medicalCheckup.setText(medRec.getLastCheckup() != null ? medRec.getLastCheckup() : "");
+        }
+        
+        // ═══════════ EDUCATION RECORD SECTION ═══════════
+        Label educationTitle = new Label("Education Information");
+        educationTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+        educationTitle.setTextFill(Color.web(TEXT()));
+        
+        TextField eduSchool = new TextField();
+        eduSchool.setPromptText("School Name");
+        eduSchool.setStyle(fieldStyle);
+        TextField eduGrade = new TextField();
+        eduGrade.setPromptText("Grade/Class");
+        eduGrade.setStyle(fieldStyle);
+        TextField eduAttendance = new TextField();
+        eduAttendance.setPromptText("Attendance %");
+        eduAttendance.setStyle(fieldStyle);
+        
+        // Load existing education record if available
+        java.util.List<EducationRecord> eduRecords = educationRecordService.getRecordsByChildId(child.getId());
+        if (!eduRecords.isEmpty()) {
+            EducationRecord eduRec = eduRecords.get(0);
+            eduSchool.setText(eduRec.getSchoolName() != null ? eduRec.getSchoolName() : "");
+            eduGrade.setText(eduRec.getGrade() != null ? eduRec.getGrade() : "");
+            eduAttendance.setText(String.valueOf(eduRec.getAttendancePercentage()));
+        }
+
         Button saveBtn = new Button("Update Child");
         saveBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 13px; -fx-cursor: hand; -fx-font-weight: bold;");
+        
+        // Create a label for validation errors to display within the form instead of popup
+        Label validationError = new Label();
+        validationError.setStyle("-fx-text-fill: #d32f2f; -fx-font-size: 12px;");
+        validationError.setVisible(false);
+        validationError.setWrapText(true);
+        
         saveBtn.setOnAction(e -> {
+            // Clear previous error
+            validationError.setVisible(false);
+            validationError.setText("");
+            
             String name = nameField.getText().trim();
             String ageText = ageField.getText().trim();
             if (name.isEmpty() || ageText.isEmpty()) {
-                new Alert(Alert.AlertType.WARNING, "Name and Age are required.").show();
+                validationError.setText("⚠ Name and Age are required.");
+                validationError.setVisible(true);
                 return;
             }
             int age;
             try {
                 age = Integer.parseInt(ageText);
             } catch (NumberFormatException ex) {
-                new Alert(Alert.AlertType.WARNING, "Age must be a number.").show();
+                validationError.setText("⚠ Age must be a number. " + ageText + " is not valid.");
+                validationError.setVisible(true);
                 return;
             }
             
@@ -2329,17 +2447,54 @@ public class AdminController {
             }
             
             childService.updateChild(child);
+            
+            // Save medical record
+            String bloodGroup = medicalBloodGroup.getText().trim();
+            String medCondition = medicalCondition.getText().trim();
+            String lastCheckup = medicalCheckup.getText().trim();
+            if (!bloodGroup.isEmpty() || !medCondition.isEmpty() || !lastCheckup.isEmpty()) {
+                java.util.List<MedicalRecord> existingMed = medicalRecordService.getRecordsByChildId(childId);
+                if (existingMed.isEmpty()) {
+                    medicalRecordService.addRecord(new MedicalRecord(childId, bloodGroup, medCondition, lastCheckup));
+                }
+            }
+            
+            // Save education record
+            String schoolName = eduSchool.getText().trim();
+            String grade = eduGrade.getText().trim();
+            String attendanceStr = eduAttendance.getText().trim();
+            if (!schoolName.isEmpty() || !grade.isEmpty() || !attendanceStr.isEmpty()) {
+                double attendance = 0;
+                try {
+                    attendance = Double.parseDouble(attendanceStr);
+                } catch (NumberFormatException ex) {
+                    /* keep as 0 */ }
+                java.util.List<EducationRecord> existingEdu = educationRecordService.getRecordsByChildId(childId);
+                if (existingEdu.isEmpty()) {
+                    educationRecordService.addRecord(new EducationRecord(childId, schoolName, grade, attendance));
+                }
+            }
             systemLogService.save(new SystemLog("Data Update",
                     "Updated child profile: " + name, user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+            
+            // Use showAndWait to ensure completion before navigating
+            Alert success = new Alert(Alert.AlertType.INFORMATION, "Child updated successfully!");
+            success.showAndWait();
             root.setCenter(buildChildProfileDetailView(childId));
         });
 
         form.getChildren().addAll(
+                validationError,
                 formRow("Name", nameField), formRow("Age", ageField),
                 formRow("Gender", genderBox), formRow("Organization", orgField),
                 formRow("Date of Birth", dobField), formRow("Status", statusBox),
-                formRow("Assigned Caregiver", caregiverBox), saveBtn);
+                formRow("Assigned Caregiver", caregiverBox), new Separator(),
+                medicalTitle, formRow("Blood Group", medicalBloodGroup), formRow("Medical Condition", medicalCondition),
+                formRow("Last Checkup", medicalCheckup), new Separator(),
+                educationTitle, formRow("School Name", eduSchool), formRow("Grade", eduGrade),
+                formRow("Attendance %", eduAttendance), new Separator(), saveBtn);
+
 
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);

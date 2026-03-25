@@ -59,14 +59,16 @@ public class UserRepository {
      * @return true if saved successfully, false otherwise
      */
     public boolean save(User user) {
-        String sql = "INSERT INTO users (username, password, email, role, approved) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, password, email, phone_number, role, approved, organization) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try {
             PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
             ps.setString(1, user.getUsername());
             ps.setString(2, user.getPassword());
             ps.setString(3, user.getEmail());
-            ps.setString(4, user.getRole().name());
-            ps.setInt(5, user.isApproved() ? 1 : 0);
+            ps.setString(4, user.getPhoneNumber());
+            ps.setString(5, user.getRole().name());
+            ps.setInt(6, user.isApproved() ? 1 : 0);
+            ps.setString(7, user.getOrganization());
             int rowsAffected = ps.executeUpdate();
             ps.close();
             return rowsAffected > 0;
@@ -209,8 +211,10 @@ public class UserRepository {
         user.setUsername(rs.getString("username"));
         user.setPassword(rs.getString("password"));
         user.setEmail(rs.getString("email"));
+        user.setPhoneNumber(rs.getString("phone_number"));
         user.setRole(role);
         user.setApproved(rs.getInt("approved") == 1);
+        user.setOrganization(rs.getString("organization"));
         return user;
     }
 }

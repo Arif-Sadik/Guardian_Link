@@ -10,6 +10,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+import javafx.util.Duration;
 import model.entity.Child;
 import model.entity.SystemLog;
 import model.user.User;
@@ -318,17 +321,13 @@ public class CaregiverController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        // Real-time stats from DB
-        List<Child> allChildren = childService.getAllChildren();
-        int childCount = allChildren.size();
-        int logCount = systemLogService.getCount();
-
+        // Create stat cards with auto-update capability
+        VBox childrenStatCard = new VBox();
+        VBox logsStatCard = new VBox();
+        VBox eventsStatCard = new VBox();
+        
         HBox stats = new HBox(16);
-        stats.getChildren().addAll(
-                statCard("Assigned Children", String.valueOf(childCount),
-                        childCount > 0 ? "All registered" : "No children yet", SECONDARY),
-                statCard("System Logs", String.valueOf(logCount), "Total entries", WARNING),
-                statCard("Upcoming Events", String.valueOf(Math.min(childCount, 3)), "Scheduled activities", INFO));
+        stats.getChildren().addAll(childrenStatCard, logsStatCard, eventsStatCard);
 
         Label qaTitle = new Label("Quick Actions");
         qaTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
@@ -368,40 +367,78 @@ public class CaregiverController {
         recentHdr.getChildren().add(recentTitle);
 
         VBox recentList = new VBox(0);
-        List<SystemLog> recentLogs = systemLogService.getRecent(5);
-        if (recentLogs.isEmpty()) {
-            Label noLogs = new Label("No recent activity.");
-            noLogs.setTextFill(Color.web(MUTED_FG()));
-            noLogs.setPadding(new Insets(16));
-            recentList.getChildren().add(noLogs);
-        } else {
-            for (SystemLog log : recentLogs) {
-                HBox logRow = new HBox(12);
-                logRow.setPadding(new Insets(12, 16, 12, 16));
-                logRow.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
-                logRow.setAlignment(Pos.CENTER_LEFT);
 
-                Label typeBadge = new Label(log.getEventType());
-                typeBadge.setFont(Font.font("Segoe UI", 11));
-                typeBadge.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-text-fill: " + PRIMARY
-                        + "; -fx-background-radius: 4; -fx-padding: 2 8;");
-
-                Label desc = new Label(log.getDescription());
-                desc.setFont(Font.font("Segoe UI", 13));
-                desc.setTextFill(Color.web(TEXT()));
-                HBox.setHgrow(desc, Priority.ALWAYS);
-
-                Label time = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
-                time.setFont(Font.font("Segoe UI", 11));
-                time.setTextFill(Color.web(MUTED_FG()));
-
-                logRow.getChildren().addAll(typeBadge, desc, time);
-                recentList.getChildren().add(logRow);
-            }
-        }
         recentCard.getChildren().addAll(recentHdr, recentList);
 
         page.getChildren().addAll(new VBox(4, title, sub), stats, qaTitle, qaCards, recentCard);
+        
+        // Function to update dashboard stats in real-time
+        Runnable updateDashboard = () -> {
+            // Update assigned children count (only for current caregiver)
+            List<Child> assignedChildren = childService.getChildrenByCaregiver(user.getId());
+            int childCount = assignedChildren.size();
+            
+            // Update log count
+            int logCount = systemLogService.getCount();
+            
+            // Rebuild stat cards with current data
+            childrenStatCard.getChildren().clear();
+            childrenStatCard.getChildren().add(statCard("Assigned Children", String.valueOf(childCount),
+                    childCount > 0 ? "Assigned to you" : "No children assigned", SECONDARY));
+            
+            logsStatCard.getChildren().clear();
+            logsStatCard.getChildren().add(statCard("System Logs", String.valueOf(logCount), "Total entries", WARNING));
+            
+            eventsStatCard.getChildren().clear();
+            eventsStatCard.getChildren().add(statCard("Upcoming Events", String.valueOf(Math.min(childCount, 3)), 
+                    "Scheduled activities", INFO));
+            
+            // Update recent activity list
+            recentList.getChildren().clear();
+            List<SystemLog> recentLogs = systemLogService.getRecent(5);
+            if (recentLogs.isEmpty()) {
+                Label noLogs = new Label("No recent activity.");
+                noLogs.setTextFill(Color.web(MUTED_FG()));
+                noLogs.setPadding(new Insets(16));
+                recentList.getChildren().add(noLogs);
+            } else {
+                for (SystemLog log : recentLogs) {
+                    HBox logRow = new HBox(12);
+                    logRow.setPadding(new Insets(12, 16, 12, 16));
+                    logRow.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+                    logRow.setAlignment(Pos.CENTER_LEFT);
+
+                    Label typeBadge = new Label(log.getEventType());
+                    typeBadge.setFont(Font.font("Segoe UI", 11));
+                    typeBadge.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-text-fill: " + PRIMARY
+                            + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+
+                    Label desc = new Label(log.getDescription());
+                    desc.setFont(Font.font("Segoe UI", 13));
+                    desc.setTextFill(Color.web(TEXT()));
+                    HBox.setHgrow(desc, Priority.ALWAYS);
+
+                    Label time = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
+                    time.setFont(Font.font("Segoe UI", 11));
+                    time.setTextFill(Color.web(MUTED_FG()));
+
+                    logRow.getChildren().addAll(typeBadge, desc, time);
+                    recentList.getChildren().add(logRow);
+                }
+            }
+        };
+        
+        // Initial update
+        updateDashboard.run();
+        
+        // Set up auto-refresh every 30 seconds
+        Timeline refreshTimeline = new Timeline(new KeyFrame(Duration.seconds(30), event -> updateDashboard.run()));
+        refreshTimeline.setCycleCount(Timeline.INDEFINITE);
+        refreshTimeline.play();
+        
+        // Store timeline in scene so it doesn't get garbage collected
+        page.setUserData(refreshTimeline);
+
         return wrapScroll(page);
     }
 
@@ -435,7 +472,7 @@ public class CaregiverController {
         title.setTextFill(Color.web(TEXT()));
 
         VBox list = new VBox(12);
-        List<Child> children = childService.getAllChildren();
+        List<Child> children = childService.getChildrenByCaregiver(user.getId());
         if (children.isEmpty()) {
             Label empty = new Label("No children assigned.");
             empty.setTextFill(Color.web(MUTED_FG()));
@@ -733,14 +770,24 @@ public class CaregiverController {
         TextArea summary = new TextArea();
         summary.setPrefRowCount(5);
         summary.setPromptText("Describe daily activities, observations, and any concerns...");
+        
+        // Validation error label
+        Label validationError = new Label();
+        validationError.setStyle("-fx-text-fill: #d32f2f; -fx-font-size: 12px;");
+        validationError.setVisible(false);
+        validationError.setWrapText(true);
 
         Button submit = new Button("Submit Daily Report");
         styleBtn(submit, PRIMARY);
         submit.setOnAction(e -> {
+            // Clear previous error
+            validationError.setVisible(false);
+            validationError.setText("");
+            
             String summaryText = summary.getText().trim();
             if (summaryText.isEmpty()) {
-                Alert a = new Alert(Alert.AlertType.WARNING, "Please enter a summary of activities.");
-                a.show();
+                validationError.setText("⚠ Please enter a summary of activities.");
+                validationError.setVisible(true);
                 return;
             }
             String dateStr = datePicker.getValue() != null ? datePicker.getValue().toString() : "";
@@ -750,13 +797,12 @@ public class CaregiverController {
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
             systemLogService.save(report);
             Alert a = new Alert(Alert.AlertType.INFORMATION, "Report submitted successfully!");
-            a.show();
-            summary.clear();
-            // Refresh page to show the new report in history
+            a.showAndWait();
+            // Page will rebuild with form cleared automatically
             root.setCenter(buildReportsPage());
         });
 
-        content.getChildren().addAll(formTitle, l1, datePicker, l2, summary, submit);
+        content.getChildren().addAll(validationError, formTitle, l1, datePicker, l2, summary, submit);
 
         // Report History
         VBox historyCard = new VBox(0);

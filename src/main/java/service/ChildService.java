@@ -22,9 +22,10 @@ public class ChildService {
 
     /**
      * Adds a new child (automatically approved for demo purposes).
+     * @return the ID of the newly added child, or -1 if save failed
      */
-    public void addChild(Child child) {
-        childRepository.save(child);
+    public int addChild(Child child) {
+        return childRepository.save(child);
     }
 
     /**

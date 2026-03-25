@@ -13,6 +13,7 @@ public abstract class User {
     private String phoneNumber;
     private UserRole role;
     private boolean approved;
+    private String organization; // Organization assignment for caregivers and other roles
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -82,6 +83,14 @@ public abstract class User {
 
     public void setPhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
+    }
+
+    public String getOrganization() {
+        return organization;
+    }
+
+    public void setOrganization(String organization) {
+        this.organization = organization;
     }
 
     @Override
