@@ -915,7 +915,7 @@ public class DonorController {
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
         backBtn.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
 
-        Label title = new Label(childName != null ? "Sponsor " + childName : "Make a Donation");
+        Label title = new Label("Make a Donation");
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
 
         VBox form = new VBox(20);
@@ -923,8 +923,35 @@ public class DonorController {
         form.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
+        // Load all children
+        java.util.List<Child> children = childService.getAllChildren();
+        
+        // Child selection
+        Label childLabel = new Label("Select Child");
+        childLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        childLabel.setTextFill(Color.web(TEXT()));
+        
+        ComboBox<String> childCombo = new ComboBox<>();
+        for (Child c : children) {
+            childCombo.getItems().add(c.getId() + " - " + c.getName());
+        }
+        childCombo.setPromptText("Choose a child to donate to...");
+        childCombo.setStyle("-fx-background-color: " + BG() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-radius: 4; -fx-padding: 10;");
+        
+        // Theme the ComboBox dropdown
+        childCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : item);
+                setStyle("-fx-text-fill: " + TEXT() + "; -fx-padding: 6;");
+            }
+        });
+
         Label amtLabel = new Label("Donation Amount (\u09F3)");
         amtLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        amtLabel.setTextFill(Color.web(TEXT()));
         TextField amtField = new TextField();
         amtField.setPromptText("e.g. 100");
         amtField.setStyle("-fx-background-color: " + BG() + "; -fx-border-color: " + BORDER()
@@ -932,6 +959,7 @@ public class DonorController {
 
         Label msgLabel = new Label("Personal Message (Optional)");
         msgLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        msgLabel.setTextFill(Color.web(TEXT()));
         TextArea msgArea = new TextArea();
         msgArea.setPromptText("Words of encouragement...");
         msgArea.setPrefHeight(100);
@@ -954,6 +982,14 @@ public class DonorController {
             validationError.setVisible(false);
             validationError.setText("");
             
+            // Validate child selection
+            String selectedChild = childCombo.getValue();
+            if (selectedChild == null || selectedChild.trim().isEmpty()) {
+                validationError.setText("⚠ Please select a child to donate to.");
+                validationError.setVisible(true);
+                return;
+            }
+            
             String amtText = amtField.getText().trim();
             if (amtText.isEmpty()) {
                 validationError.setText("⚠ Amount is required.");
@@ -968,17 +1004,21 @@ public class DonorController {
                 validationError.setVisible(true);
                 return;
             }
-            Donation d = new Donation(user.getId(), 0, amount, "General Welfare", LocalDate.now().toString());
+            
+            // Extract child ID from selected text (format: "ID - Name")
+            int childId = Integer.parseInt(selectedChild.split(" - ")[0]);
+            
+            Donation d = new Donation(user.getId(), childId, amount, "General Welfare", LocalDate.now().toString());
             donationService.save(d);
             systemLogService
-                    .save(new SystemLog("Donation", "Submitted donation of \u09F3" + amtText, user.getUsername(),
+                    .save(new SystemLog("Donation", "Submitted donation of \u09F3" + amtText + " to child ID " + childId, user.getUsername(),
                             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
             Alert success = new Alert(Alert.AlertType.INFORMATION, "Donation submitted successfully!");
             success.showAndWait();
             root.setCenter(buildSponsorshipPage());
         });
 
-        form.getChildren().addAll(validationError, amtLabel, amtField, msgLabel, msgArea, submit);
+        form.getChildren().addAll(validationError, childLabel, childCombo, amtLabel, amtField, msgLabel, msgArea, submit);
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);
     }
