@@ -936,16 +936,29 @@ public class DonorController {
             childCombo.getItems().add(c.getId() + " - " + c.getName());
         }
         childCombo.setPromptText("Choose a child to donate to...");
-        childCombo.setStyle("-fx-background-color: " + BG() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-radius: 4; -fx-padding: 10;");
+        childCombo.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-text-fill: " + TEXT() + "; -fx-border-radius: 4; -fx-padding: 10; -fx-font-size: 13px;");
         
-        // Theme the ComboBox dropdown
+        // Theme the ComboBox dropdown and button cell
+        childCombo.setButtonCell(new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : item);
+                setStyle("-fx-text-fill: " + TEXT() + "; -fx-padding: 6; -fx-background-color: " + CARD() + ";");
+            }
+        });
+        
         childCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty ? "" : item);
-                setStyle("-fx-text-fill: " + TEXT() + "; -fx-padding: 6;");
+                if (empty || isSelected()) {
+                    setStyle("-fx-text-fill: white; -fx-padding: 6; -fx-background-color: " + PRIMARY + ";");
+                } else {
+                    setStyle("-fx-text-fill: " + TEXT() + "; -fx-padding: 6; -fx-background-color: " + CARD() + ";");
+                }
             }
         });
 
@@ -954,8 +967,8 @@ public class DonorController {
         amtLabel.setTextFill(Color.web(TEXT()));
         TextField amtField = new TextField();
         amtField.setPromptText("e.g. 100");
-        amtField.setStyle("-fx-background-color: " + BG() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-radius: 4; -fx-padding: 10;");
+        amtField.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-text-fill: " + TEXT() + "; -fx-prompt-text-fill: " + MUTED_FG() + "; -fx-border-radius: 4; -fx-padding: 10; -fx-font-size: 13px;");
 
         Label msgLabel = new Label("Personal Message (Optional)");
         msgLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
@@ -963,8 +976,9 @@ public class DonorController {
         TextArea msgArea = new TextArea();
         msgArea.setPromptText("Words of encouragement...");
         msgArea.setPrefHeight(100);
-        msgArea.setStyle("-fx-background-color: " + BG() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-radius: 4; -fx-padding: 10;");
+        msgArea.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-text-fill: " + TEXT() + "; -fx-font-size: 13px; -fx-border-radius: 4; -fx-padding: 10; -fx-control-inner-background: " + CARD() + ";");
+        msgArea.setWrapText(true);
 
         Button submit = new Button("Submit Donation");
         submit.setMaxWidth(Double.MAX_VALUE);
