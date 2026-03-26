@@ -12,7 +12,7 @@ public class Child {
     private String organization;
     private String gender;
     private String dateOfBirth;
-    private String status; // Active, Graduated, Archived
+    private String status; // Active, Graduated, Inactive
     private Integer assignedCaregiverId; // ID of the assigned caregiver (nullable)
 
     // ── Constructors ──────────────────────────────────────────

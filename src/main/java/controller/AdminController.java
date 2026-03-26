@@ -60,6 +60,8 @@ public class AdminController {
     private BorderPane root;
     private VBox sidebar;
     private String activePage = "dashboard";
+    private boolean isShowingForm = false; // Flag to prevent auto-refresh during form display
+    private Timeline refreshTimer; // Store reference to timer for control
 
     private java.util.List<String[]> activeAlerts = new java.util.ArrayList<>(java.util.Arrays.asList(
             new String[] { "critical", "Low Wallet Balance", "ALT-001", "2 hours ago",
@@ -126,13 +128,15 @@ public class AdminController {
         root.setStyle("-fx-background-color: " + BG() + ";");
 
         // Auto-refresh timer: refresh the active page every 30 seconds for real-time
-        // data
-        Timeline refreshTimer = new Timeline(new KeyFrame(Duration.seconds(30), ev -> {
-            switch (activePage) {
-                case "dashboard" -> root.setCenter(buildDashboardPage());
-                case "children" -> root.setCenter(buildChildrenPage());
-                case "reports" -> root.setCenter(buildReportsPage());
-                case "admin" -> root.setCenter(buildAdminPage());
+        // data (but skip if a form is being shown)
+        refreshTimer = new Timeline(new KeyFrame(Duration.seconds(30), ev -> {
+            if (!isShowingForm) {
+                switch (activePage) {
+                    case "dashboard" -> root.setCenter(buildDashboardPage());
+                    case "children" -> root.setCenter(buildChildrenPage());
+                    case "reports" -> root.setCenter(buildReportsPage());
+                    case "admin" -> root.setCenter(buildAdminPage());
+                }
             }
         }));
         refreshTimer.setCycleCount(Timeline.INDEFINITE);
@@ -1491,7 +1495,7 @@ public class AdminController {
             // Convert User object to display format
             String userId = "USR-" + String.format("%03d", dbUser.getId());
             String name = dbUser.getUsername();
-            String email = dbUser.getUsername() + "@example.com"; // placeholder
+            String email = dbUser.getEmail() != null ? dbUser.getEmail() : dbUser.getUsername() + "@guardianlink.org";
             String role = dbUser.getRole().toString().replace("_", " ");
             String status = dbUser.isApproved() ? "Active" : "Pending";
             String lastLogin = "N/A";
@@ -1661,7 +1665,10 @@ public class AdminController {
 
         Button backBtn = new Button("\u2190 Back to User Management");
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
-        backBtn.setOnAction(e -> root.setCenter(buildAdminPage()));
+        backBtn.setOnAction(e -> {
+            isShowingForm = false;
+            root.setCenter(buildAdminPage());
+        });
 
         Label title = new Label(userToEdit == null ? "Add New User" : "Edit User");
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
@@ -1801,6 +1808,9 @@ public class AdminController {
 
         // Submit button
         ComboBox<String> finalRoleCombo = roleCombo;
+        // Set form flag to true when showing the form
+        isShowingForm = true;
+
         Button submit = new Button(userToEdit == null ? "Create User Account" : "Update User Account");
         submit.setMaxWidth(Double.MAX_VALUE);
         submit.setStyle("-fx-background-color: " + PRIMARY
@@ -1863,6 +1873,7 @@ public class AdminController {
                     newUser.setApproved(approvedCb.isSelected());
                     boolean created = userService.createUser(newUser);
                     if (created) {
+                        isShowingForm = false;
                         root.setCenter(buildAdminPage());
                     } else {
                         errorLabel.setText("Username already exists or failed to create user");
@@ -1886,6 +1897,7 @@ public class AdminController {
                 }
 
                 userService.updateUser(userToEdit);
+                isShowingForm = false;
                 root.setCenter(buildAdminPage());
             }
         });
@@ -2110,12 +2122,18 @@ public class AdminController {
 
     // ═══════════ ADD CHILD FORM ═══════════
     private ScrollPane buildAddChildForm() {
+        // Set form flag to prevent auto-refresh
+        isShowingForm = true;
+        
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
         Button backBtn = new Button("\u2190 Back to Profiles");
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
-        backBtn.setOnAction(e -> root.setCenter(buildChildrenPage()));
+        backBtn.setOnAction(e -> {
+            isShowingForm = false;
+            root.setCenter(buildChildrenPage());
+        });
 
         Label title = new Label("Add New Child");
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
@@ -2151,7 +2169,7 @@ public class AdminController {
         
         // Status dropdown
         ComboBox<String> statusBox = new ComboBox<>();
-        statusBox.getItems().addAll("Active", "Graduated", "Archived");
+        statusBox.getItems().addAll("Active", "Graduated", "Inactive");
         statusBox.setValue("Active");
         statusBox.setMaxWidth(Double.MAX_VALUE);
         statusBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
@@ -2239,6 +2257,7 @@ public class AdminController {
                     
                     Alert success = new Alert(Alert.AlertType.INFORMATION, "Child added successfully!");
                     success.showAndWait();
+                    isShowingForm = false;
                     root.setCenter(buildChildrenPage());
                 } else {
                     validationError.setText("⚠ Failed to save child to database. Please try again.");
@@ -2263,10 +2282,14 @@ public class AdminController {
 
     // ═══════════ EDIT CHILD FORM ═══════════
     private ScrollPane buildEditChildForm(int childId) {
+        // Set form flag to prevent auto-refresh
+        isShowingForm = true;
+        
         Child child = childService.getChildById(childId);
         if (child == null) {
             VBox err = new VBox(new Label("Child not found."));
             err.setPadding(new Insets(24));
+            isShowingForm = false;
             return wrapScroll(err);
         }
 
@@ -2275,7 +2298,10 @@ public class AdminController {
 
         Button backBtn = new Button("\u2190 Back to Profile");
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
-        backBtn.setOnAction(e -> root.setCenter(buildChildProfileDetailView(childId)));
+        backBtn.setOnAction(e -> {
+            isShowingForm = false;
+            root.setCenter(buildChildProfileDetailView(childId));
+        });
 
         Label title = new Label("Edit Child: " + child.getName());
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
@@ -2294,7 +2320,7 @@ public class AdminController {
         TextField orgField = new TextField(child.getOrganization() != null ? child.getOrganization() : "");
         TextField dobField = new TextField(child.getDateOfBirth() != null ? child.getDateOfBirth() : "");
         ComboBox<String> statusBox = new ComboBox<>();
-        statusBox.getItems().addAll("Active", "Graduated", "Archived");
+        statusBox.getItems().addAll("Active", "Graduated", "Inactive");
         statusBox.setValue(child.getStatus() != null ? child.getStatus() : "Active");
         
         // Caregiver assignment dropdown
@@ -2481,6 +2507,7 @@ public class AdminController {
             // Use showAndWait to ensure completion before navigating
             Alert success = new Alert(Alert.AlertType.INFORMATION, "Child updated successfully!");
             success.showAndWait();
+            isShowingForm = false;
             root.setCenter(buildChildProfileDetailView(childId));
         });
 

@@ -194,7 +194,7 @@ public class DBUtil {
         // Donor (approved)
         ps.setString(1, "donor");
         ps.setString(2, PasswordUtil.hash("donor123"));
-        ps.setString(3, "donor@example.com");
+        ps.setString(3, "donor@guardianlink.org");
         ps.setString(4, "DONOR");
         ps.setInt(5, 1);
         ps.executeUpdate();

@@ -49,6 +49,8 @@ public class OrgAdminController {
     private BorderPane root;
     private VBox sidebar;
     private String activePage = "dashboard";
+    private boolean isShowingForm = false; // Flag to prevent auto-refresh during form display
+    private Timeline refreshTimer; // Store reference to timer for control
 
     private final ChildService childService = new ChildService();
     private final DonationService donationService = new DonationService();
@@ -103,14 +105,16 @@ public class OrgAdminController {
         root.setStyle("-fx-background-color: " + BG() + ";");
 
         // Auto-refresh timer: refresh the active page every 30 seconds for real-time
-        // data
-        Timeline refreshTimer = new Timeline(new KeyFrame(Duration.seconds(30), ev -> {
-            switch (activePage) {
-                case "dashboard" -> root.setCenter(buildDashboardPage());
-                case "children" -> root.setCenter(buildChildrenPage());
-                case "sponsorship" -> root.setCenter(buildSponsorshipPage());
-                case "alerts" -> root.setCenter(buildAlertsPage());
-                case "reports" -> root.setCenter(buildReportsPage());
+        // data (but skip if a form is being shown)
+        refreshTimer = new Timeline(new KeyFrame(Duration.seconds(30), ev -> {
+            if (!isShowingForm) {
+                switch (activePage) {
+                    case "dashboard" -> root.setCenter(buildDashboardPage());
+                    case "children" -> root.setCenter(buildChildrenPage());
+                    case "sponsorship" -> root.setCenter(buildSponsorshipPage());
+                    case "alerts" -> root.setCenter(buildAlertsPage());
+                    case "reports" -> root.setCenter(buildReportsPage());
+                }
             }
         }));
         refreshTimer.setCycleCount(Timeline.INDEFINITE);
@@ -1083,12 +1087,18 @@ public class OrgAdminController {
 
     // ═══════════ EDIT CHILD FORM ═══════════
     private ScrollPane buildEditChildForm(Child child) {
+        // Set form flag to prevent auto-refresh
+        isShowingForm = true;
+        
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
         Button backBtn = new Button("\u2190 Back to Children");
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
-        backBtn.setOnAction(e -> root.setCenter(buildChildrenPage()));
+        backBtn.setOnAction(e -> {
+            isShowingForm = false;
+            root.setCenter(buildChildrenPage());
+        });
 
         Label title = new Label("Edit Child Profile: " + child.getName());
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
@@ -1109,7 +1119,7 @@ public class OrgAdminController {
         Label statusLabel = new Label("Status");
         statusLabel.setStyle("-fx-text-fill: " + TEXT() + "; -fx-font-weight: bold; -fx-font-size: 13;");
         ComboBox<String> statusBox = new ComboBox<>();
-        statusBox.getItems().addAll("Active", "Graduated", "Archived");
+        statusBox.getItems().addAll("Active", "Graduated", "Inactive");
         statusBox.setValue(child.getStatus() != null ? child.getStatus() : "Active");
         statusBox.setMaxWidth(Double.MAX_VALUE);
         statusBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
@@ -1269,6 +1279,7 @@ public class OrgAdminController {
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
             showAlert("Success", "Child profile updated successfully.");
             selectedChild = child;
+            isShowingForm = false;
             root.setCenter(buildChildrenPage());
         });
 
@@ -1281,12 +1292,18 @@ public class OrgAdminController {
 
     // ═══════════ ADD CHILD DIALOG ═══════════
     private void showAddChildDialog() {
+        // Set form flag to prevent auto-refresh
+        isShowingForm = true;
+        
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
         Button backBtn = new Button("\u2190 Back to Children");
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand;");
-        backBtn.setOnAction(e -> root.setCenter(buildChildrenPage()));
+        backBtn.setOnAction(e -> {
+            isShowingForm = false;
+            root.setCenter(buildChildrenPage());
+        });
 
         Label title = new Label("Add New Child Profile");
         title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
@@ -1307,7 +1324,7 @@ public class OrgAdminController {
         Label statusLabel = new Label("Status");
         statusLabel.setStyle("-fx-text-fill: " + TEXT() + "; -fx-font-weight: bold; -fx-font-size: 13;");
         ComboBox<String> statusBox = new ComboBox<>();
-        statusBox.getItems().addAll("Active", "Graduated", "Archived");
+        statusBox.getItems().addAll("Active", "Graduated", "Inactive");
         statusBox.setValue("Active");
         statusBox.setMaxWidth(Double.MAX_VALUE);
         statusBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
@@ -1386,6 +1403,7 @@ public class OrgAdminController {
             } else {
                 showAlert("Error", "Failed to save child to database.");
             }
+            isShowingForm = false;
             root.setCenter(buildChildrenPage());
         });
 
