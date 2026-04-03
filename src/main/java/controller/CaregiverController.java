@@ -148,8 +148,148 @@ public class CaregiverController {
         userInfo.getChildren().addAll(uName, uRole);
 
         userTypeBox.getChildren().addAll(userInfo);
+        
+        // Make user box clickable to show profile
+        userTypeBox.setStyle(userTypeBox.getStyle() + "; -fx-cursor: hand;");
+        userTypeBox.setOnMouseClicked(e -> root.setCenter(buildProfilePage()));
+        
         header.getChildren().addAll(logoIcon, titleBox, spacer, userTypeBox);
         return header;
+    }
+    
+    // ═══════════ PROFILE PAGE ═══════════
+    private ScrollPane buildProfilePage() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(32));
+        page.setMaxWidth(600);
+        
+        // Back button
+        Button backBtn = new Button("\u2190 Back");
+        backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand; -fx-font-size: 13px;");
+        backBtn.setOnAction(e -> root.setCenter(buildDashboardPage()));
+        
+        // Profile card
+        VBox card = new VBox(0);
+        card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+        
+        // Profile header
+        HBox profileHeader = new HBox(16);
+        profileHeader.setPadding(new Insets(24));
+        profileHeader.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        
+        Label profileIcon = new Label("👤");
+        profileIcon.setFont(Font.font("Segoe UI Emoji", 48));
+        
+        VBox profileInfo = new VBox(8);
+        Label profileName = new Label(user.getUsername());
+        profileName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
+        profileName.setTextFill(Color.web(TEXT()));
+        
+        Label profileRole = new Label("Caregiver");
+        profileRole.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
+        profileRole.setTextFill(Color.web(PRIMARY));
+        
+        Label profileEmail = new Label(user.getEmail() != null ? user.getEmail() : "Not set");
+        profileEmail.setFont(Font.font("Segoe UI", 12));
+        profileEmail.setTextFill(Color.web(MUTED_FG()));
+        
+        profileInfo.getChildren().addAll(profileName, profileRole, profileEmail);
+        profileHeader.getChildren().addAll(profileIcon, profileInfo);
+        
+        // Profile details
+        VBox details = new VBox(12);
+        details.setPadding(new Insets(24));
+        
+        // Account Information section
+        Label accountTitle = new Label("Account Information");
+        accountTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        accountTitle.setTextFill(Color.web(TEXT()));
+        details.getChildren().add(accountTitle);
+        
+        GridPane detailsGrid = new GridPane();
+        detailsGrid.setHgap(16);
+        detailsGrid.setVgap(12);
+        
+        String[] labels = {"Username", "Email", "Role", "Status", "User ID"};
+        String[] values = {
+            user.getUsername(),
+            user.getEmail() != null ? user.getEmail() : "Not provided",
+            "Caregiver",
+            user.isApproved() ? "Active" : "Pending",
+            "USR-" + String.format("%03d", user.getId())
+        };
+        
+        for (int i = 0; i < labels.length; i++) {
+            Label label = new Label(labels[i] + ":");
+            label.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 12));
+            label.setTextFill(Color.web(MUTED_FG()));
+            
+            Label value = new Label(values[i]);
+            value.setFont(Font.font("Segoe UI", 12));
+            value.setTextFill(Color.web(TEXT()));
+            
+            detailsGrid.add(label, 0, i);
+            detailsGrid.add(value, 1, i);
+        }
+        details.getChildren().add(detailsGrid);
+        
+        // Settings section
+        VBox settingsSection = new VBox(12);
+        Label settingsTitle = new Label("Settings");
+        settingsTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        settingsTitle.setTextFill(Color.web(TEXT()));
+        settingsSection.getChildren().add(settingsTitle);
+        
+        // Change password button
+        Button changePassBtn = new Button("Change Password");
+        changePassBtn.setMaxWidth(Double.MAX_VALUE);
+        changePassBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 10 16; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 13px;");
+        changePassBtn.setOnAction(e -> showChangePasswordDialog());
+        settingsSection.getChildren().add(changePassBtn);
+        
+        details.getChildren().add(new Separator());
+        details.getChildren().add(settingsSection);
+        
+        card.getChildren().addAll(profileHeader, details);
+        page.getChildren().addAll(backBtn, card);
+        
+        ScrollPane sp = new ScrollPane(page);
+        sp.setFitToWidth(true);
+        sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
+        return sp;
+    }
+    
+    private void showChangePasswordDialog() {
+        javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Change Password");
+        dialog.setHeaderText("Update your password");
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+        
+        PasswordField currentPass = new PasswordField();
+        currentPass.setPromptText("Current password");
+        PasswordField newPass = new PasswordField();
+        newPass.setPromptText("New password");
+        PasswordField confirmPass = new PasswordField();
+        confirmPass.setPromptText("Confirm password");
+        
+        grid.add(new Label("Current:"), 0, 0);
+        grid.add(currentPass, 1, 0);
+        grid.add(new Label("New:"), 0, 1);
+        grid.add(newPass, 1, 1);
+        grid.add(new Label("Confirm:"), 0, 2);
+        grid.add(confirmPass, 1, 2);
+        
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(
+            javafx.scene.control.ButtonType.OK,
+            javafx.scene.control.ButtonType.CANCEL
+        );
+        
+        dialog.showAndWait();
     }
 
     // ═══════════ SIDEBAR ═══════════
