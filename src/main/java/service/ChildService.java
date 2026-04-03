@@ -138,4 +138,25 @@ public class ChildService {
     public List<User> getAllCaregivers() {
         return userRepository.findAllCaregivers();
     }
+
+    /**
+     * Gets all children assigned to a specific sponsor.
+     */
+    public List<Child> getChildrenBySponsor(int sponsorId) {
+        return childRepository.findBySponsor(sponsorId);
+    }
+
+    /**
+     * Gets all children that are currently unsponsored.
+     */
+    public List<Child> getUnsponsoredChildren() {
+        return childRepository.findUnsponsored();
+    }
+
+    /**
+     * Removes sponsor assignment from a child.
+     */
+    public boolean removeSponsorFromChild(int childId) {
+        return childRepository.removeSponsorAssignment(childId);
+    }
 }

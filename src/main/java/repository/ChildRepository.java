@@ -57,8 +57,7 @@ public class ChildRepository {
      * Inserts a new child into the database and returns the generated ID.
      */
     public int save(Child child) {
-        // Try with the new schema first (with assigned_caregiver_id)
-        String sql = "INSERT INTO children (name, age, organization, gender, date_of_birth, status, assigned_caregiver_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO children (name, age, organization, gender, date_of_birth, status, assigned_caregiver_id, sponsor_id, photo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try {
             PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, child.getName());
@@ -72,6 +71,12 @@ public class ChildRepository {
             } else {
                 ps.setNull(7, java.sql.Types.INTEGER);
             }
+            if (child.getSponsorId() != null) {
+                ps.setInt(8, child.getSponsorId());
+            } else {
+                ps.setNull(8, java.sql.Types.INTEGER);
+            }
+            ps.setString(9, child.getPhotoPath());
             ps.executeUpdate();
             ResultSet generatedKeys = ps.getGeneratedKeys();
             if (generatedKeys.next()) {
@@ -112,7 +117,7 @@ public class ChildRepository {
      * Updates an existing child record.
      */
     public boolean updateChild(Child child) {
-        String sql = "UPDATE children SET name = ?, age = ?, organization = ?, gender = ?, date_of_birth = ?, status = ?, assigned_caregiver_id = ? WHERE id = ?";
+        String sql = "UPDATE children SET name = ?, age = ?, organization = ?, gender = ?, date_of_birth = ?, status = ?, assigned_caregiver_id = ?, sponsor_id = ?, photo_path = ? WHERE id = ?";
         try {
             PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
             ps.setString(1, child.getName());
@@ -126,7 +131,13 @@ public class ChildRepository {
             } else {
                 ps.setNull(7, java.sql.Types.INTEGER);
             }
-            ps.setInt(8, child.getId());
+            if (child.getSponsorId() != null) {
+                ps.setInt(8, child.getSponsorId());
+            } else {
+                ps.setNull(8, java.sql.Types.INTEGER);
+            }
+            ps.setString(9, child.getPhotoPath());
+            ps.setInt(10, child.getId());
             int rows = ps.executeUpdate();
             ps.close();
             return rows > 0;
@@ -192,6 +203,64 @@ public class ChildRepository {
     }
 
     /**
+     * Finds all children assigned to a specific sponsor.
+     */
+    public List<Child> findBySponsor(int sponsorId) {
+        List<Child> children = new ArrayList<>();
+        String sql = "SELECT * FROM children WHERE sponsor_id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setInt(1, sponsorId);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                children.add(mapRow(rs));
+            }
+            rs.close();
+            ps.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return children;
+    }
+
+    /**
+     * Finds all children that do not have a sponsor assigned.
+     */
+    public List<Child> findUnsponsored() {
+        List<Child> children = new ArrayList<>();
+        String sql = "SELECT * FROM children WHERE sponsor_id IS NULL";
+        try {
+            Statement stmt = DBUtil.getConnection().createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
+            while (rs.next()) {
+                children.add(mapRow(rs));
+            }
+            rs.close();
+            stmt.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return children;
+    }
+
+    /**
+     * Removes sponsor assignment from a child (sets to null).
+     */
+    public boolean removeSponsorAssignment(int childId) {
+        String sql = "UPDATE children SET sponsor_id = NULL WHERE id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setInt(1, childId);
+            int rows = ps.executeUpdate();
+            ps.close();
+            return rows > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
      * Maps a ResultSet row to a Child object.
      */
     private Child mapRow(ResultSet rs) throws SQLException {
@@ -209,6 +278,26 @@ public class ChildRepository {
             Object caregiverId = rs.getObject("assigned_caregiver_id");
             if (caregiverId != null) {
                 child.setAssignedCaregiverId((Integer) caregiverId);
+            }
+        } catch (SQLException e) {
+            // Column doesn't exist, skip it
+        }
+
+        // Handle assigned sponsor ID
+        try {
+            Object sponsorIdObj = rs.getObject("sponsor_id");
+            if (sponsorIdObj != null) {
+                child.setSponsorId((Integer) sponsorIdObj);
+            }
+        } catch (SQLException e) {
+            // Column doesn't exist, skip it
+        }
+
+        // Handle photo path
+        try {
+            String photoPath = rs.getString("photo_path");
+            if (photoPath != null) {
+                child.setPhotoPath(photoPath);
             }
         } catch (SQLException e) {
             // Column doesn't exist, skip it

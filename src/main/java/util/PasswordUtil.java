@@ -24,4 +24,11 @@ public class PasswordUtil {
             throw new RuntimeException("SHA-256 not available", e);
         }
     }
+
+    /**
+     * Verifies a plain-text password against a hashed one.
+     */
+    public static boolean verify(String plainPassword, String hashedPassword) {
+        return hash(plainPassword).equals(hashedPassword);
+    }
 }

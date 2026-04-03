@@ -202,12 +202,10 @@ public class OrgAdminController {
         page.setPadding(new Insets(32));
         page.setMaxWidth(600);
         
-        // Back button
         Button backBtn = new Button("\u2190 Back");
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand; -fx-font-size: 13px;");
         backBtn.setOnAction(e -> root.setCenter(buildDashboardPage()));
         
-        // Profile card
         VBox card = new VBox(0);
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         
@@ -215,16 +213,33 @@ public class OrgAdminController {
         HBox profileHeader = new HBox(16);
         profileHeader.setPadding(new Insets(24));
         profileHeader.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        profileHeader.setAlignment(Pos.CENTER_LEFT);
         
-        Label profileIcon = new Label("👤");
-        profileIcon.setFont(Font.font("Segoe UI Emoji", 48));
+        Node profileIcon;
+        if (user.getProfilePhoto() != null && !user.getProfilePhoto().isEmpty()) {
+            javafx.scene.shape.Circle clip = new javafx.scene.shape.Circle(30);
+            javafx.scene.image.ImageView photoView = new javafx.scene.image.ImageView();
+            photoView.setFitWidth(60);
+            photoView.setFitHeight(60);
+            photoView.setClip(clip);
+            clip.setCenterX(30);
+            clip.setCenterY(30);
+            try {
+                photoView.setImage(new javafx.scene.image.Image(new java.io.File(user.getProfilePhoto()).toURI().toString()));
+            } catch (Exception e) {}
+            profileIcon = photoView;
+        } else {
+            Label icon = new Label("👤");
+            icon.setFont(Font.font("Segoe UI Emoji", 48));
+            profileIcon = icon;
+        }
         
         VBox profileInfo = new VBox(8);
         Label profileName = new Label(user.getUsername());
         profileName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
         profileName.setTextFill(Color.web(TEXT()));
         
-        Label profileRole = new Label("Organization Admin");
+        Label profileRole = new Label(user.getRole().name().replace("_", " "));
         profileRole.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
         profileRole.setTextFill(Color.web(PRIMARY));
         
@@ -249,11 +264,13 @@ public class OrgAdminController {
         detailsGrid.setHgap(16);
         detailsGrid.setVgap(12);
         
-        String[] labels = {"Username", "Email", "Role", "Status", "User ID"};
+        String[] labels = {"Username", "Email", "Phone", "Organization", "Role", "Status", "User ID"};
         String[] values = {
             user.getUsername(),
             user.getEmail() != null ? user.getEmail() : "Not provided",
-            "Organization Admin",
+            user.getPhoneNumber() != null ? user.getPhoneNumber() : "Not provided",
+            user.getOrganization() != null ? user.getOrganization() : "Not provided",
+            user.getRole().name().replace("_", " "),
             user.isApproved() ? "Active" : "Pending",
             "USR-" + String.format("%03d", user.getId())
         };
@@ -279,12 +296,18 @@ public class OrgAdminController {
         settingsTitle.setTextFill(Color.web(TEXT()));
         settingsSection.getChildren().add(settingsTitle);
         
-        // Change password button
+        HBox btnBox = new HBox(12);
+        
+        Button editProfileBtn = new Button("Edit Profile");
+        editProfileBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 4; -fx-cursor: hand;");
+        editProfileBtn.setOnAction(e -> showEditProfileDialog());
+        
         Button changePassBtn = new Button("Change Password");
-        changePassBtn.setMaxWidth(Double.MAX_VALUE);
-        changePassBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 10 16; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 13px;");
+        changePassBtn.setStyle("-fx-background-color: transparent; -fx-border-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY + "; -fx-padding: 8 16; -fx-background-radius: 4; -fx-border-radius: 4; -fx-cursor: hand;");
         changePassBtn.setOnAction(e -> showChangePasswordDialog());
-        settingsSection.getChildren().add(changePassBtn);
+        
+        btnBox.getChildren().addAll(editProfileBtn, changePassBtn);
+        settingsSection.getChildren().add(btnBox);
         
         details.getChildren().add(new Separator());
         details.getChildren().add(settingsSection);
@@ -296,6 +319,67 @@ public class OrgAdminController {
         sp.setFitToWidth(true);
         sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
         return sp;
+    }
+    
+    private void showEditProfileDialog() {
+        Dialog<Boolean> dialog = new Dialog<>();
+        dialog.setTitle("Edit Profile");
+        dialog.setHeaderText("Update your profile information");
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+        
+        TextField emailField = new TextField(user.getEmail() != null ? user.getEmail() : "");
+        TextField phoneField = new TextField(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+        TextField orgField = new TextField(user.getOrganization() != null ? user.getOrganization() : "");
+        
+        Label photoLabel = new Label("Photo:");
+        Button changePhotoBtn = new Button("Select Image");
+        final String[] newPhotoPath = {user.getProfilePhoto()};
+        changePhotoBtn.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Select Profile Photo");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+            java.io.File file = chooser.showOpenDialog(stage);
+            if (file != null) {
+                newPhotoPath[0] = file.getAbsolutePath();
+                changePhotoBtn.setText("Selected: " + file.getName());
+            }
+        });
+        
+        int row = 0;
+        grid.add(new Label("Email:"), 0, row); grid.add(emailField, 1, row++);
+        grid.add(new Label("Phone:"), 0, row); grid.add(phoneField, 1, row++);
+        grid.add(new Label("Organization:"), 0, row); grid.add(orgField, 1, row++);
+        grid.add(photoLabel, 0, row); grid.add(changePhotoBtn, 1, row++);
+        
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.setResultConverter(buttonType -> {
+            if (buttonType == ButtonType.OK) {
+                user.setEmail(emailField.getText());
+                user.setPhoneNumber(phoneField.getText());
+                user.setOrganization(orgField.getText());
+                user.setProfilePhoto(newPhotoPath[0]);
+                
+                if (userService.updateProfile(user)) {
+                    Alert a = new Alert(Alert.AlertType.INFORMATION, "Profile updated successfully!");
+                    a.show();
+                    root.setCenter(buildProfilePage());
+                    root.setTop(buildHeader());
+                    return true;
+                } else {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Failed to update profile.");
+                    a.show();
+                    return false;
+                }
+            }
+            return null;
+        });
+        dialog.showAndWait();
     }
     
     private void showChangePasswordDialog() {
@@ -328,6 +412,30 @@ public class OrgAdminController {
             javafx.scene.control.ButtonType.CANCEL
         );
         
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == javafx.scene.control.ButtonType.OK) {
+                if (!newPass.getText().equals(confirmPass.getText())) {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Passwords do not match.");
+                    a.show();
+                    return null;
+                }
+                if (!util.PasswordUtil.verify(currentPass.getText(), user.getPassword())) {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Current password is incorrect.");
+                    a.show();
+                    return null;
+                }
+                user.setPassword(util.PasswordUtil.hash(newPass.getText()));
+                if (userService.updateProfile(user)) {
+                    Alert a = new Alert(Alert.AlertType.INFORMATION, "Password updated successfully!");
+                    a.show();
+                } else {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Failed to update password.");
+                    a.show();
+                }
+            }
+            return null;
+        });
+
         dialog.showAndWait();
     }
 
@@ -1158,13 +1266,34 @@ public class OrgAdminController {
         StackPane avatar = new StackPane();
         avatar.setPrefSize(80, 80);
         avatar.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-background-radius: 40;");
-        String initStr = child.getName().length() >= 2
-                ? child.getName().substring(0, 2).toUpperCase()
-                : child.getName().toUpperCase();
-        Label initials = new Label(initStr);
-        initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
-        initials.setTextFill(Color.web(PRIMARY));
-        avatar.getChildren().add(initials);
+        if (child.getPhotoPath() != null && !child.getPhotoPath().isEmpty()) {
+            try {
+                javafx.scene.image.Image img = new javafx.scene.image.Image("file:" + child.getPhotoPath());
+                javafx.scene.image.ImageView iv = new javafx.scene.image.ImageView(img);
+                iv.setFitWidth(80);
+                iv.setFitHeight(80);
+                iv.setPreserveRatio(true);
+                javafx.scene.shape.Circle clip = new javafx.scene.shape.Circle(40, 40, 40);
+                iv.setClip(clip);
+                avatar.getChildren().add(iv);
+            } catch (Exception e) {
+                String initStr = child.getName().length() >= 2
+                        ? child.getName().substring(0, 2).toUpperCase()
+                        : child.getName().toUpperCase();
+                Label initials = new Label(initStr);
+                initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+                initials.setTextFill(Color.web(PRIMARY));
+                avatar.getChildren().add(initials);
+            }
+        } else {
+            String initStr = child.getName().length() >= 2
+                    ? child.getName().substring(0, 2).toUpperCase()
+                    : child.getName().toUpperCase();
+            Label initials = new Label(initStr);
+            initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 24));
+            initials.setTextFill(Color.web(PRIMARY));
+            avatar.getChildren().add(initials);
+        }
 
         VBox info = new VBox(4);
         HBox.setHgrow(info, Priority.ALWAYS);
@@ -1254,6 +1383,26 @@ public class OrgAdminController {
         VBox dobField = formField("Date of Birth", child.getDateOfBirth() != null ? child.getDateOfBirth() : "");
         VBox orgField = formField("Organization", child.getOrganization() != null ? child.getOrganization() : "");
         
+        // Photo upload
+        Label photoLabel = new Label("Profile Photo");
+        photoLabel.setStyle("-fx-text-fill: " + TEXT() + "; -fx-font-weight: bold; -fx-font-size: 13;");
+        Button changePhotoBtn = new Button(child.getPhotoPath() != null ? "Change Photo" : "Select Photo");
+        changePhotoBtn.setMaxWidth(Double.MAX_VALUE);
+        changePhotoBtn.setStyle("-fx-background-color: transparent; -fx-border-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY + "; -fx-border-radius: 4; -fx-padding: 8 12; -fx-cursor: hand;");
+        final String[] newPhotoPath = {child.getPhotoPath()};
+        changePhotoBtn.setOnAction(ev -> {
+            javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+            chooser.setTitle("Select Child Photo");
+            chooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+            java.io.File file = chooser.showOpenDialog(stage);
+            if (file != null) {
+                newPhotoPath[0] = file.getAbsolutePath();
+                changePhotoBtn.setText("Selected: " + file.getName());
+            }
+        });
+        VBox photoField = new VBox(8);
+        photoField.getChildren().addAll(photoLabel, changePhotoBtn);
+        
         // Status dropdown
         Label statusLabel = new Label("Status");
         statusLabel.setStyle("-fx-text-fill: " + TEXT() + "; -fx-font-weight: bold; -fx-font-size: 13;");
@@ -1302,6 +1451,42 @@ public class OrgAdminController {
         
         VBox caregiverField = new VBox(8);
         caregiverField.getChildren().addAll(caregiverLabel, caregiverBox);
+
+        // Sponsor assignment dropdown
+        Label sponsorLabel = new Label("Dedicated Sponsor");
+        sponsorLabel.setStyle("-fx-text-fill: " + TEXT() + "; -fx-font-weight: bold; -fx-font-size: 13;");
+        ComboBox<String> sponsorBox = new ComboBox<>();
+        sponsorBox.setPromptText("Select Sponsor (Optional)");
+        sponsorBox.setMaxWidth(Double.MAX_VALUE);
+        sponsorBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
+                + TEXT() + ";");
+        
+        // Populate with available Donors
+        List<User> allDonors = userService.getAllUsers().stream().filter(u -> u.getRole() == model.user.UserRole.DONOR).toList();
+        java.util.Map<String, Integer> sponsorMap = new java.util.HashMap<>();
+        sponsorBox.getItems().add("-- No Assignment --");
+        for (User sp : allDonors) {
+            String displayName = sp.getUsername() + " (ID: " + sp.getId() + ")";
+            sponsorBox.getItems().add(displayName);
+            sponsorMap.put(displayName, sp.getId());
+        }
+        
+        // Set current sponsor if assigned
+        if (child.getSponsorId() != null) {
+            User currentSponsor = userService.findById(child.getSponsorId());
+            if (currentSponsor != null) {
+                String currentDisplay = currentSponsor.getUsername() + " (ID: " + currentSponsor.getId() + ")";
+                sponsorBox.setValue(currentDisplay);
+            } else {
+                sponsorBox.setValue("-- No Assignment --");
+            }
+        } else {
+            sponsorBox.setValue("-- No Assignment --");
+        }
+        
+        VBox sponsorField = new VBox(8);
+        sponsorField.getChildren().addAll(sponsorLabel, sponsorBox);
 
         // ═══════════ MEDICAL RECORD SECTION ═══════════
         Label medicalTitle = new Label("Medical Information");
@@ -1368,6 +1553,7 @@ public class OrgAdminController {
             child.setDateOfBirth(((TextField) dobField.getChildren().get(1)).getText().trim());
             child.setOrganization(((TextField) orgField.getChildren().get(1)).getText().trim());
             child.setStatus(((ComboBox<String>) statusField.getChildren().get(1)).getValue());
+            child.setPhotoPath(newPhotoPath[0]);
             
             // Handle caregiver changes
             if (previousCaregiverId != null && newCaregiverId == null) {
@@ -1383,6 +1569,14 @@ public class OrgAdminController {
                         LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
             } else {
                 child.setAssignedCaregiverId(newCaregiverId);
+            }
+            
+            // Handle sponsor changes
+            String selectedSponsor = sponsorBox.getValue();
+            if (!selectedSponsor.equals("-- No Assignment --")) {
+                child.setSponsorId(sponsorMap.get(selectedSponsor));
+            } else {
+                child.setSponsorId(null);
             }
             
             childService.updateChild(child);
@@ -1422,8 +1616,8 @@ public class OrgAdminController {
             root.setCenter(buildChildrenPage());
         });
 
-        card.getChildren().addAll(nameField, ageField, genderField, dobField, orgField, statusField,
-                caregiverField, new Separator(), medicalTitle, medicalBloodGroup, medicalCondition, medicalCheckup,
+        card.getChildren().addAll(nameField, ageField, genderField, dobField, orgField, photoField, statusField,
+                caregiverField, sponsorField, new Separator(), medicalTitle, medicalBloodGroup, medicalCondition, medicalCheckup,
                 new Separator(), educationTitle, eduSchool, eduGrade, eduAttendance, new Separator(), saveBtn);
         page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);
@@ -1458,6 +1652,26 @@ public class OrgAdminController {
         VBox genderField = formField("Gender", "");
         VBox dobField = formField("Date of Birth", "");
         VBox orgField = formField("Organization", "");
+        
+        // Photo upload
+        Label photoLabel = new Label("Profile Photo");
+        photoLabel.setStyle("-fx-text-fill: " + TEXT() + "; -fx-font-weight: bold; -fx-font-size: 13;");
+        Button changePhotoBtn = new Button("Select Photo");
+        changePhotoBtn.setMaxWidth(Double.MAX_VALUE);
+        changePhotoBtn.setStyle("-fx-background-color: transparent; -fx-border-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY + "; -fx-border-radius: 4; -fx-padding: 8 12; -fx-cursor: hand;");
+        final String[] newPhotoPath = {null};
+        changePhotoBtn.setOnAction(ev -> {
+            javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+            chooser.setTitle("Select Child Photo");
+            chooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+            java.io.File file = chooser.showOpenDialog(stage);
+            if (file != null) {
+                newPhotoPath[0] = file.getAbsolutePath();
+                changePhotoBtn.setText("Selected: " + file.getName());
+            }
+        });
+        VBox photoField = new VBox(8);
+        photoField.getChildren().addAll(photoLabel, changePhotoBtn);
         
         // Status dropdown
         Label statusLabel = new Label("Status");
@@ -1496,6 +1710,30 @@ public class OrgAdminController {
         VBox caregiverField = new VBox(8);
         caregiverField.getChildren().addAll(caregiverLabel, caregiverBox);
 
+        // Sponsor assignment dropdown
+        Label sponsorLabel = new Label("Dedicated Sponsor");
+        sponsorLabel.setStyle("-fx-text-fill: " + TEXT() + "; -fx-font-weight: bold; -fx-font-size: 13;");
+        ComboBox<String> sponsorBox = new ComboBox<>();
+        sponsorBox.setPromptText("Select Sponsor (Optional)");
+        sponsorBox.setMaxWidth(Double.MAX_VALUE);
+        sponsorBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
+                + TEXT() + ";");
+        
+        // Populate with available Donors
+        List<User> allDonors = userService.getAllUsers().stream().filter(u -> u.getRole() == model.user.UserRole.DONOR).toList();
+        java.util.Map<String, Integer> sponsorMap = new java.util.HashMap<>();
+        sponsorBox.getItems().add("-- No Assignment --");
+        for (User sp : allDonors) {
+            String displayName = sp.getUsername() + " (ID: " + sp.getId() + ")";
+            sponsorBox.getItems().add(displayName);
+            sponsorMap.put(displayName, sp.getId());
+        }
+        sponsorBox.setValue("-- No Assignment --");
+
+        VBox sponsorField = new VBox(8);
+        sponsorField.getChildren().addAll(sponsorLabel, sponsorBox);
+
         Button saveBtn = new Button("Save New Child");
         saveBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
@@ -1516,12 +1754,20 @@ public class OrgAdminController {
             newChild.setDateOfBirth(((TextField) dobField.getChildren().get(1)).getText().trim());
             newChild.setOrganization(((TextField) orgField.getChildren().get(1)).getText().trim());
             newChild.setStatus(((ComboBox<String>) statusField.getChildren().get(1)).getValue());
+            newChild.setPhotoPath(newPhotoPath[0]);
             
             // Handle caregiver assignment
             String selectedCaregiver = caregiverBox.getValue();
             if (!selectedCaregiver.equals("-- No Assignment --")) {
                 Integer caregiverId = caregiverMap.get(selectedCaregiver);
                 newChild.setAssignedCaregiverId(caregiverId);
+            }
+            
+            // Handle sponsor assignment
+            String selectedSponsor = sponsorBox.getValue();
+            if (!selectedSponsor.equals("-- No Assignment --")) {
+                Integer sponsorId = sponsorMap.get(selectedSponsor);
+                newChild.setSponsorId(sponsorId);
             }
             
             int childId = childService.addChild(newChild);
@@ -1546,8 +1792,8 @@ public class OrgAdminController {
             root.setCenter(buildChildrenPage());
         });
 
-        card.getChildren().addAll(nameField, ageField, genderField, dobField, orgField, statusField,
-                caregiverField, new Separator(), saveBtn);
+        card.getChildren().addAll(nameField, ageField, genderField, dobField, orgField, photoField, statusField,
+                caregiverField, sponsorField, new Separator(), saveBtn);
         page.getChildren().addAll(backBtn, title, card);
         root.setCenter(wrapScroll(page));
     }

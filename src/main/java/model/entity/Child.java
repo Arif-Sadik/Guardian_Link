@@ -14,6 +14,8 @@ public class Child {
     private String dateOfBirth;
     private String status; // Active, Graduated, Inactive
     private Integer assignedCaregiverId; // ID of the assigned caregiver (nullable)
+    private Integer sponsorId; // ID of the dedicated donor (nullable)
+    private String photoPath; // System path to the uploaded photo
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -100,6 +102,22 @@ public class Child {
 
     public void setAssignedCaregiverId(Integer assignedCaregiverId) {
         this.assignedCaregiverId = assignedCaregiverId;
+    }
+
+    public Integer getSponsorId() {
+        return sponsorId;
+    }
+
+    public void setSponsorId(Integer sponsorId) {
+        this.sponsorId = sponsorId;
+    }
+
+    public String getPhotoPath() {
+        return photoPath;
+    }
+
+    public void setPhotoPath(String photoPath) {
+        this.photoPath = photoPath;
     }
 
     @Override

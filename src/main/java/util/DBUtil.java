@@ -56,7 +56,9 @@ public class DBUtil {
                             gender                  TEXT,
                             date_of_birth           TEXT,
                             status                  TEXT,
-                            assigned_caregiver_id   INTEGER DEFAULT NULL
+                            assigned_caregiver_id   INTEGER DEFAULT NULL,
+                            sponsor_id              INTEGER DEFAULT NULL,
+                            photo_path              TEXT DEFAULT NULL
                         )
                     """);
 
@@ -64,6 +66,18 @@ public class DBUtil {
 
             try {
                 stmt.execute("ALTER TABLE children ADD COLUMN assigned_caregiver_id INTEGER DEFAULT NULL");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
+            
+            try {
+                stmt.execute("ALTER TABLE children ADD COLUMN sponsor_id INTEGER DEFAULT NULL");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
+            
+            try {
+                stmt.execute("ALTER TABLE children ADD COLUMN photo_path TEXT DEFAULT NULL");
             } catch (SQLException e) {
                 // Column already exists, ignore
             }
@@ -138,6 +152,12 @@ public class DBUtil {
 
             try {
                 stmt.execute("ALTER TABLE users ADD COLUMN organization VARCHAR(255) DEFAULT NULL");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
+
+            try {
+                stmt.execute("ALTER TABLE users ADD COLUMN profile_photo TEXT DEFAULT NULL");
             } catch (SQLException e) {
                 // Column already exists, ignore
             }

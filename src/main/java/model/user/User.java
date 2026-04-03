@@ -14,6 +14,7 @@ public abstract class User {
     private UserRole role;
     private boolean approved;
     private String organization; // Organization assignment for caregivers and other roles
+    private String profilePhoto; // File path to user's profile photo
 
     // ── Constructors ──────────────────────────────────────────
 
@@ -91,6 +92,14 @@ public abstract class User {
 
     public void setOrganization(String organization) {
         this.organization = organization;
+    }
+
+    public String getProfilePhoto() {
+        return profilePhoto;
+    }
+
+    public void setProfilePhoto(String profilePhoto) {
+        this.profilePhoto = profilePhoto;
     }
 
     @Override

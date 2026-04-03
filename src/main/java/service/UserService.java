@@ -57,6 +57,15 @@ public class UserService {
     }
 
     /**
+     * Updates an existing user's profile information.
+     * 
+     * @return true if updated successfully, false otherwise
+     */
+    public boolean updateProfile(User user) {
+        return userRepository.updateProfile(user);
+    }
+
+    /**
      * Finds a user by their database ID.
      */
     public User findById(int userId) {

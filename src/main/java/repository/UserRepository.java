@@ -128,19 +128,45 @@ public class UserRepository {
      * @return true if updated successfully, false otherwise
      */
     public boolean updateUser(User user) {
-        String sql = "UPDATE users SET username = ?, password = ?, email = ?, approved = ? WHERE id = ?";
+        String sql = "UPDATE users SET username = ?, password = ?, email = ?, phone_number = ?, organization = ?, profile_photo = ?, approved = ? WHERE id = ?";
         try {
             PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
             ps.setString(1, user.getUsername());
             ps.setString(2, user.getPassword());
             ps.setString(3, user.getEmail());
-            ps.setInt(4, user.isApproved() ? 1 : 0);
-            ps.setInt(5, user.getId());
+            ps.setString(4, user.getPhoneNumber());
+            ps.setString(5, user.getOrganization());
+            ps.setString(6, user.getProfilePhoto());
+            ps.setInt(7, user.isApproved() ? 1 : 0);
+            ps.setInt(8, user.getId());
             int rowsAffected = ps.executeUpdate();
             ps.close();
             return rowsAffected > 0;
         } catch (SQLException e) {
             System.err.println("Failed to update user: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Updates an existing user's profile information.
+     */
+    public boolean updateProfile(User user) {
+        String sql = "UPDATE users SET email = ?, phone_number = ?, organization = ?, profile_photo = ?, password = ? WHERE id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setString(1, user.getEmail());
+            ps.setString(2, user.getPhoneNumber());
+            ps.setString(3, user.getOrganization());
+            ps.setString(4, user.getProfilePhoto());
+            ps.setString(5, user.getPassword());
+            ps.setInt(6, user.getId());
+            int rowsAffected = ps.executeUpdate();
+            ps.close();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            System.err.println("Failed to update profile: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -215,6 +241,7 @@ public class UserRepository {
         user.setRole(role);
         user.setApproved(rs.getInt("approved") == 1);
         user.setOrganization(rs.getString("organization"));
+        user.setProfilePhoto(rs.getString("profile_photo"));
         return user;
     }
 }

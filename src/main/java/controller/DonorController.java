@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import service.UserService;
 
 /**
  * Donor dashboard — Figma-matched.
@@ -49,7 +50,6 @@ public class DonorController {
 
     private static final String PRIMARY = ThemeManager.PRIMARY;
     private static final String SECONDARY = ThemeManager.SECONDARY;
-    private static final String WARNING = ThemeManager.WARNING;
 
     // Theme-aware color getters
     private String BG() {
@@ -170,12 +170,10 @@ public class DonorController {
         page.setPadding(new Insets(32));
         page.setMaxWidth(600);
         
-        // Back button
         Button backBtn = new Button("\u2190 Back");
         backBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + PRIMARY + "; -fx-cursor: hand; -fx-font-size: 13px;");
         backBtn.setOnAction(e -> root.setCenter(buildDashboardPage()));
         
-        // Profile card
         VBox card = new VBox(0);
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER() + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         
@@ -183,16 +181,33 @@ public class DonorController {
         HBox profileHeader = new HBox(16);
         profileHeader.setPadding(new Insets(24));
         profileHeader.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        profileHeader.setAlignment(Pos.CENTER_LEFT);
         
-        Label profileIcon = new Label("👤");
-        profileIcon.setFont(Font.font("Segoe UI Emoji", 48));
+        Node profileIcon;
+        if (user.getProfilePhoto() != null && !user.getProfilePhoto().isEmpty()) {
+            javafx.scene.shape.Circle clip = new javafx.scene.shape.Circle(30);
+            javafx.scene.image.ImageView photoView = new javafx.scene.image.ImageView();
+            photoView.setFitWidth(60);
+            photoView.setFitHeight(60);
+            photoView.setClip(clip);
+            clip.setCenterX(30);
+            clip.setCenterY(30);
+            try {
+                photoView.setImage(new javafx.scene.image.Image(new java.io.File(user.getProfilePhoto()).toURI().toString()));
+            } catch (Exception e) {}
+            profileIcon = photoView;
+        } else {
+            Label icon = new Label("👤");
+            icon.setFont(Font.font("Segoe UI Emoji", 48));
+            profileIcon = icon;
+        }
         
         VBox profileInfo = new VBox(8);
         Label profileName = new Label(user.getUsername());
         profileName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 24));
         profileName.setTextFill(Color.web(TEXT()));
         
-        Label profileRole = new Label("Donor");
+        Label profileRole = new Label(user.getRole().name().replace("_", " "));
         profileRole.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
         profileRole.setTextFill(Color.web(PRIMARY));
         
@@ -217,11 +232,13 @@ public class DonorController {
         detailsGrid.setHgap(16);
         detailsGrid.setVgap(12);
         
-        String[] labels = {"Username", "Email", "Role", "Status", "User ID"};
+        String[] labels = {"Username", "Email", "Phone", "Organization", "Role", "Status", "User ID"};
         String[] values = {
             user.getUsername(),
             user.getEmail() != null ? user.getEmail() : "Not provided",
-            "Donor",
+            user.getPhoneNumber() != null ? user.getPhoneNumber() : "Not provided",
+            user.getOrganization() != null ? user.getOrganization() : "Not provided",
+            user.getRole().name().replace("_", " "),
             user.isApproved() ? "Active" : "Pending",
             "USR-" + String.format("%03d", user.getId())
         };
@@ -247,12 +264,18 @@ public class DonorController {
         settingsTitle.setTextFill(Color.web(TEXT()));
         settingsSection.getChildren().add(settingsTitle);
         
-        // Change password button
+        HBox btnBox = new HBox(12);
+        
+        Button editProfileBtn = new Button("Edit Profile");
+        editProfileBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 4; -fx-cursor: hand;");
+        editProfileBtn.setOnAction(e -> showEditProfileDialog());
+        
         Button changePassBtn = new Button("Change Password");
-        changePassBtn.setMaxWidth(Double.MAX_VALUE);
-        changePassBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 10 16; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 13px;");
+        changePassBtn.setStyle("-fx-background-color: transparent; -fx-border-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY + "; -fx-padding: 8 16; -fx-background-radius: 4; -fx-border-radius: 4; -fx-cursor: hand;");
         changePassBtn.setOnAction(e -> showChangePasswordDialog());
-        settingsSection.getChildren().add(changePassBtn);
+        
+        btnBox.getChildren().addAll(editProfileBtn, changePassBtn);
+        settingsSection.getChildren().add(btnBox);
         
         details.getChildren().add(new Separator());
         details.getChildren().add(settingsSection);
@@ -264,6 +287,68 @@ public class DonorController {
         sp.setFitToWidth(true);
         sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
         return sp;
+    }
+    
+    private void showEditProfileDialog() {
+        Dialog<Boolean> dialog = new Dialog<>();
+        dialog.setTitle("Edit Profile");
+        dialog.setHeaderText("Update your profile information");
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+        
+        TextField emailField = new TextField(user.getEmail() != null ? user.getEmail() : "");
+        TextField phoneField = new TextField(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
+        TextField orgField = new TextField(user.getOrganization() != null ? user.getOrganization() : "");
+        
+        Label photoLabel = new Label("Photo:");
+        Button changePhotoBtn = new Button("Select Image");
+        final String[] newPhotoPath = {user.getProfilePhoto()};
+        changePhotoBtn.setOnAction(e -> {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Select Profile Photo");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+            java.io.File file = chooser.showOpenDialog(stage);
+            if (file != null) {
+                newPhotoPath[0] = file.getAbsolutePath();
+                changePhotoBtn.setText("Selected: " + file.getName());
+            }
+        });
+        
+        int row = 0;
+        grid.add(new Label("Email:"), 0, row); grid.add(emailField, 1, row++);
+        grid.add(new Label("Phone:"), 0, row); grid.add(phoneField, 1, row++);
+        grid.add(new Label("Organization:"), 0, row); grid.add(orgField, 1, row++);
+        grid.add(photoLabel, 0, row); grid.add(changePhotoBtn, 1, row++);
+        
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.setResultConverter(buttonType -> {
+            if (buttonType == ButtonType.OK) {
+                user.setEmail(emailField.getText());
+                user.setPhoneNumber(phoneField.getText());
+                user.setOrganization(orgField.getText());
+                user.setProfilePhoto(newPhotoPath[0]);
+                
+                UserService userService = new UserService();
+                if (userService.updateProfile(user)) {
+                    Alert a = new Alert(Alert.AlertType.INFORMATION, "Profile updated successfully!");
+                    a.show();
+                    root.setCenter(buildProfilePage());
+                    root.setTop(buildHeader());
+                    return true;
+                } else {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Failed to update profile.");
+                    a.show();
+                    return false;
+                }
+            }
+            return null;
+        });
+        dialog.showAndWait();
     }
     
     private void showChangePasswordDialog() {
@@ -296,6 +381,31 @@ public class DonorController {
             javafx.scene.control.ButtonType.CANCEL
         );
         
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == javafx.scene.control.ButtonType.OK) {
+                if (!newPass.getText().equals(confirmPass.getText())) {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Passwords do not match.");
+                    a.show();
+                    return null;
+                }
+                if (!util.PasswordUtil.verify(currentPass.getText(), user.getPassword())) {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Current password is incorrect.");
+                    a.show();
+                    return null;
+                }
+                user.setPassword(util.PasswordUtil.hash(newPass.getText()));
+                UserService userService = new UserService();
+                if (userService.updateProfile(user)) {
+                    Alert a = new Alert(Alert.AlertType.INFORMATION, "Password updated successfully!");
+                    a.show();
+                } else {
+                    Alert a = new Alert(Alert.AlertType.ERROR, "Failed to update password.");
+                    a.show();
+                }
+            }
+            return null;
+        });
+
         dialog.showAndWait();
     }
 
@@ -479,7 +589,7 @@ public class DonorController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        List<Child> allChildren = childService.getAllChildren();
+        List<Child> allChildren = childService.getChildrenBySponsor(user.getId());
         List<Donation> allDonations = donationService.getAll();
         double totalDonated = allDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox stats = new HBox(16);
@@ -504,12 +614,29 @@ public class DonorController {
             StackPane avatar = new StackPane();
             avatar.setPrefSize(56, 56);
             avatar.setStyle("-fx-background-color: " + PRIMARY + "1A; -fx-background-radius: 28;");
-            String initStr = ch.getName().length() >= 2 ? ch.getName().substring(0, 2).toUpperCase()
-                    : ch.getName().toUpperCase();
-            Label initials = new Label(initStr);
-            initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
-            initials.setTextFill(Color.web(PRIMARY));
-            avatar.getChildren().add(initials);
+            if (ch.getPhotoPath() != null && !ch.getPhotoPath().isEmpty()) {
+                try {
+                    javafx.scene.image.Image img = new javafx.scene.image.Image("file:" + ch.getPhotoPath(), 56, 56, true, true);
+                    javafx.scene.image.ImageView iv = new javafx.scene.image.ImageView(img);
+                    iv.setFitWidth(56);
+                    iv.setFitHeight(56);
+                    javafx.scene.shape.Circle clip = new javafx.scene.shape.Circle(28, 28, 28);
+                    iv.setClip(clip);
+                    avatar.getChildren().add(iv);
+                } catch (Exception ex) {
+                    String initStr = ch.getName().length() >= 2 ? ch.getName().substring(0, 2).toUpperCase() : ch.getName().toUpperCase();
+                    Label initials = new Label(initStr);
+                    initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
+                    initials.setTextFill(Color.web(PRIMARY));
+                    avatar.getChildren().add(initials);
+                }
+            } else {
+                String initStr = ch.getName().length() >= 2 ? ch.getName().substring(0, 2).toUpperCase() : ch.getName().toUpperCase();
+                Label initials = new Label(initStr);
+                initials.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 18));
+                initials.setTextFill(Color.web(PRIMARY));
+                avatar.getChildren().add(initials);
+            }
 
             Label name = new Label(ch.getName());
             name.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
@@ -629,13 +756,13 @@ public class DonorController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        // Child selector
+        // Child selector (For making direct donations)
         VBox selBox = new VBox(8);
-        Label selLabel = new Label("Select Child");
+        Label selLabel = new Label("Select Child for Donation");
         selLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
         ComboBox<String> selCombo = new ComboBox<>();
-        List<Child> spChildren = childService.getAllChildren();
-        for (Child ch : spChildren) {
+        List<Child> allCbChildren = childService.getAllChildren();
+        for (Child ch : allCbChildren) {
             selCombo.getItems().add(ch.getName() + " (CH-" + (1000 + ch.getId()) + ")");
         }
         if (!selCombo.getItems().isEmpty())
@@ -646,10 +773,12 @@ public class DonorController {
         List<Donation> spDonations = donationService.getAll();
         double spTotal = spDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox stats = new HBox(16);
+        
+        List<Child> sponsoredChildren = childService.getChildrenBySponsor(user.getId());
         stats.getChildren().addAll(
-                statCard("Total Received", String.format("\u09F3%,.0f", spTotal), "All time", SECONDARY),
-                statCard("Total Donations", String.valueOf(spDonations.size()), "Records", MUTED_FG()),
-                statCard("Children Covered", String.valueOf(spChildren.size()), "Sponsored", MUTED_FG()),
+                statCard("Total Received (Org)", String.format("\u09F3%,.0f", spTotal), "All time", SECONDARY),
+                statCard("Total Donations (Org)", String.valueOf(spDonations.size()), "Records", MUTED_FG()),
+                statCard("Your Sponsored", String.valueOf(sponsoredChildren.size()), "Actively Supported", PRIMARY),
                 statCard("Active Sponsor", "You", "Since joining", MUTED_FG()));
 
         // Fund Utilization
@@ -699,7 +828,84 @@ public class DonorController {
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 14px; -fx-cursor: hand;");
         makeDon.setOnAction(e -> root.setCenter(buildDonationForm(null)));
 
-        page.getChildren().addAll(new VBox(4, title, sub), selBox, stats, fundCard, makeDon);
+        // --- DEDICATED SPONSORSHIP SECTION ---
+        VBox sponsorshipCardsContainer = new VBox(20);
+        
+        // 1. Sponsored Children
+        VBox sponsoredSection = new VBox(12);
+        Label mySpTitle = new Label("Your Actively Sponsored Children");
+        mySpTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+        mySpTitle.setTextFill(Color.web(TEXT()));
+        javafx.scene.layout.FlowPane mySpCards = new javafx.scene.layout.FlowPane(16, 16);
+        if (sponsoredChildren.isEmpty()) {
+            Label noSp = new Label("You are not currently sponsoring any children exclusively.");
+            noSp.setTextFill(Color.web(MUTED_FG()));
+            mySpCards.getChildren().add(noSp);
+        } else {
+            for (Child ch : sponsoredChildren) {
+                VBox scard = new VBox(12);
+                scard.setPadding(new Insets(16));
+                scard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + PRIMARY
+                        + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+                Label n = new Label("CH-" + ch.getId() + " | " + ch.getName());
+                n.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
+                Label o = new Label((ch.getOrganization() != null ? ch.getOrganization() : "Unknown Org"));
+                o.setFont(Font.font("Segoe UI", 12));
+                o.setTextFill(Color.web(MUTED_FG()));
+                
+                Button unSponsor = new Button("Un-sponsor");
+                unSponsor.setStyle("-fx-background-color: transparent; -fx-border-color: " + DESTRUCTIVE + "; -fx-text-fill: " + DESTRUCTIVE + "; -fx-border-radius: 4; -fx-cursor: hand;");
+                unSponsor.setOnAction(e -> {
+                    childService.removeSponsorFromChild(ch.getId());
+                    systemLogService.save(new model.entity.SystemLog("Sponsorship Removal", "Donor " + user.getUsername() + " unsponsored child CH-" + ch.getId(), user.getUsername(), java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                    root.setCenter(buildSponsorshipPage()); // Refresh
+                });
+                scard.getChildren().addAll(n, o, unSponsor);
+                mySpCards.getChildren().add(scard);
+            }
+        }
+        sponsoredSection.getChildren().addAll(mySpTitle, mySpCards);
+
+        // 2. Unsponsored Children
+        VBox unsponsoredSection = new VBox(12);
+        Label unSpTitle = new Label("Children Waiting For A Sponsor");
+        unSpTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+        unSpTitle.setTextFill(Color.web(TEXT()));
+        javafx.scene.layout.FlowPane unSpCards = new javafx.scene.layout.FlowPane(16, 16);
+        List<Child> unsponsoredChildren = childService.getUnsponsoredChildren();
+        if (unsponsoredChildren.isEmpty()) {
+            Label allSp = new Label("All children are currently sponsored! Thank you donors!");
+            allSp.setTextFill(Color.web(SECONDARY));
+            unSpCards.getChildren().add(allSp);
+        } else {
+            for (Child ch : unsponsoredChildren) {
+                VBox ucard = new VBox(12);
+                ucard.setPadding(new Insets(16));
+                ucard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                        + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+                Label n = new Label("CH-" + ch.getId() + " | " + ch.getName() + " (" + ch.getAge() + "y)");
+                n.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 14));
+                Label o = new Label((ch.getOrganization() != null ? ch.getOrganization() : "Unknown Org"));
+                o.setFont(Font.font("Segoe UI", 12));
+                o.setTextFill(Color.web(MUTED_FG()));
+                
+                Button adoptBtn = new Button("\u2764\uFE0F Sponsor Child");
+                adoptBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-cursor: hand;");
+                adoptBtn.setOnAction(e -> {
+                    ch.setSponsorId(user.getId());
+                    childService.updateChild(ch);
+                    systemLogService.save(new model.entity.SystemLog("Sponsorship Added", "Donor " + user.getUsername() + " sponsored child CH-" + ch.getId(), user.getUsername(), java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                    root.setCenter(buildSponsorshipPage()); // Refresh
+                });
+                ucard.getChildren().addAll(n, o, adoptBtn);
+                unSpCards.getChildren().add(ucard);
+            }
+        }
+        unsponsoredSection.getChildren().addAll(unSpTitle, unSpCards);
+        
+        sponsorshipCardsContainer.getChildren().addAll(new Separator(), sponsoredSection, new Separator(), unsponsoredSection);
+
+        page.getChildren().addAll(new VBox(4, title, sub), stats, selBox, fundCard, makeDon, sponsorshipCardsContainer);
         return wrapScroll(page);
     }
 
@@ -1032,7 +1238,102 @@ public class DonorController {
             root.setCenter(buildSponsorshipPage());
         });
 
-        form.getChildren().addAll(validationError, childLabel, childCombo, amtLabel, amtField, msgLabel, msgArea, submit);
+        // ═══ PAYMENT METHOD SECTION ═══
+        Label payLabel = new Label("Payment Method");
+        payLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        payLabel.setTextFill(Color.web(TEXT()));
+
+        // Payment method data: [name, brand color, emoji/symbol, subtitle]
+        String[][] methods = {
+            { "bKash",      "#E2136E", "৳",  "Mobile Banking"    },
+            { "Nagad",      "#F05829", "N",  "Digital Financial" },
+            { "Rocket",     "#8B008B", "🚀", "DBBL Mobile"       },
+            { "Visa",       "#1A1F71", "V",  "Credit / Debit"    },
+            { "Mastercard", "#EB001B", "MC", "Credit / Debit"    },
+        };
+
+        // Track which card is selected (index -1 = none)
+        final int[] selectedPayIdx = {-1};
+        javafx.scene.layout.FlowPane payCards = new javafx.scene.layout.FlowPane(12, 12);
+
+        // Build each card as a StackPane overlay with a VBox label inside
+        java.util.List<VBox> cardNodes = new java.util.ArrayList<>();
+        for (int i = 0; i < methods.length; i++) {
+            final int idx = i;
+            String[] m = methods[i];
+
+            VBox payCard = new VBox(6);
+            payCard.setAlignment(javafx.geometry.Pos.CENTER);
+            payCard.setPrefWidth(100);
+            payCard.setPrefHeight(72);
+            payCard.setPadding(new Insets(10, 12, 10, 12));
+            payCard.setStyle(
+                "-fx-background-color: " + CARD() + ";" +
+                "-fx-border-color: " + BORDER() + ";" +
+                "-fx-border-width: 2;" +
+                "-fx-border-radius: 10;" +
+                "-fx-background-radius: 10;" +
+                "-fx-cursor: hand;"
+            );
+
+            // Brand circle / logo stand-in
+            StackPane logoCircle = new StackPane();
+            logoCircle.setPrefSize(32, 32);
+            logoCircle.setStyle(
+                "-fx-background-color: " + m[1] + ";" +
+                "-fx-background-radius: 8;"
+            );
+            Label logoLbl = new Label(m[2]);
+            logoLbl.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+            logoLbl.setTextFill(Color.WHITE);
+            logoCircle.getChildren().add(logoLbl);
+
+            Label nameLbl = new Label(m[0]);
+            nameLbl.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+            nameLbl.setTextFill(Color.web(TEXT()));
+
+            Label subLbl = new Label(m[3]);
+            subLbl.setFont(Font.font("Segoe UI", 9));
+            subLbl.setTextFill(Color.web(MUTED_FG()));
+
+            payCard.getChildren().addAll(logoCircle, nameLbl, subLbl);
+            cardNodes.add(payCard);
+
+            payCard.setOnMouseClicked(ev -> {
+                // Deselect all
+                for (VBox c : cardNodes) {
+                    c.setStyle(
+                        "-fx-background-color: " + CARD() + ";" +
+                        "-fx-border-color: " + BORDER() + ";" +
+                        "-fx-border-width: 2;" +
+                        "-fx-border-radius: 10;" +
+                        "-fx-background-radius: 10;" +
+                        "-fx-cursor: hand;"
+                    );
+                }
+                // Highlight selected
+                selectedPayIdx[0] = idx;
+                payCard.setStyle(
+                    "-fx-background-color: " + methods[idx][1] + "1A;" +
+                    "-fx-border-color: " + methods[idx][1] + ";" +
+                    "-fx-border-width: 2;" +
+                    "-fx-border-radius: 10;" +
+                    "-fx-background-radius: 10;" +
+                    "-fx-cursor: hand;"
+                );
+                nameLbl.setTextFill(Color.web(methods[idx][1]));
+            });
+
+            payCards.getChildren().add(payCard);
+        }
+
+        Label payNote = new Label("⚠ Demo mode — payment is simulated.");
+        payNote.setFont(Font.font("Segoe UI", 10));
+        payNote.setTextFill(Color.web(MUTED_FG()));
+
+        form.getChildren().addAll(validationError, childLabel, childCombo, amtLabel, amtField,
+                payLabel, payCards, payNote, msgLabel, msgArea, submit);
+
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);
     }
