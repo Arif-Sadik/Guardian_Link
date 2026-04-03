@@ -39,6 +39,7 @@ public class CaregiverController {
     private final Stage stage;
     private final User user;
     private BorderPane root;
+    private Scene scene;
     private VBox sidebar;
     private String activePage = "dashboard";
 
@@ -90,7 +91,11 @@ public class CaregiverController {
         root.setLeft(buildSidebar());
         root.setCenter(buildDashboardPage());
         root.setStyle("-fx-background-color: " + BG() + ";");
-        Scene scene = new Scene(root, 1280, 800);
+        scene = new Scene(root, 1280, 800);
+        
+        // Apply dark mode styles for DatePicker visibility
+        applyDarkModeStylesheet(scene);
+        
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 Caregiver Dashboard");
         stage.show();
@@ -98,6 +103,12 @@ public class CaregiverController {
 
     private void refreshTheme() {
         root.setStyle("-fx-background-color: " + BG() + ";");
+        
+        // Manage stylesheets based on theme
+        if (scene != null) {
+            applyDarkModeStylesheet(scene);
+        }
+        
         root.setTop(buildHeader());
         root.setLeft(buildSidebar());
         switch (activePage) {
@@ -1133,5 +1144,49 @@ public class CaregiverController {
     private void styleBtn(Button b, String color) {
         b.setStyle("-fx-background-color: " + color
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-cursor: hand;");
+    }
+
+    private void applyDarkModeStylesheet(Scene scene) {
+        // Remove all existing stylesheets to prevent theme mixing
+        scene.getStylesheets().clear();
+        
+        // Only apply dark mode stylesheet if dark mode is enabled
+        if (!ThemeManager.isDarkMode()) {
+            return; // Light mode uses default JavaFX styling
+        }
+        
+        // Create comprehensive dark mode CSS for all controls
+        String darkModeCSS = ".text-input { -fx-text-fill: #e2e8f0; -fx-control-inner-background: #16213e; }"
+                + ".combo-box { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box .list-cell { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box-popup .list-view { -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-picker { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup { -fx-background-color: #16213e; }"
+                + ".date-picker-popup .button { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .button:hover { -fx-background-color: #1a3a52; }"
+                + ".date-picker-popup .label { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .spinner .text-field { -fx-control-inner-background: #0f3460; -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .text { -fx-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .button { -fx-text-fill: #e2e8f0; }"
+                + ".date-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; -fx-padding: 4px; }"
+                + ".date-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-cell:focused { -fx-background-color: #2563eb; -fx-text-fill: white; }"
+                + ".date-cell:today { -fx-border-color: #2563eb; -fx-border-width: 1; }"
+                + ".date-cell:selected { -fx-background-color: #2563eb; -fx-text-fill: white; }";
+        
+        // Add stylesheet to scene
+        try {
+            java.io.File tempFile = java.io.File.createTempFile("darkmode", ".css");
+            tempFile.deleteOnExit();
+            try (java.io.FileWriter writer = new java.io.FileWriter(tempFile)) {
+                writer.write(darkModeCSS);
+            }
+            scene.getStylesheets().add("file:///" + tempFile.getAbsolutePath().replace("\\", "/"));
+        } catch (java.io.IOException e) {
+            System.err.println("Failed to apply dark mode stylesheet: " + e.getMessage());
+        }
     }
 }

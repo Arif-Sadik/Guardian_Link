@@ -23,6 +23,8 @@ import model.entity.MedicalRecord;
 import model.entity.EducationRecord;
 import util.ThemeManager;
 import javafx.stage.FileChooser;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +41,7 @@ public class DonorController {
     private final Stage stage;
     private final User user;
     private BorderPane root;
+    private Scene scene;
     private VBox sidebar;
     private String activePage = "dashboard";
 
@@ -50,6 +53,7 @@ public class DonorController {
 
     private static final String PRIMARY = ThemeManager.PRIMARY;
     private static final String SECONDARY = ThemeManager.SECONDARY;
+    private static final String INFO = ThemeManager.INFO;
 
     // Theme-aware color getters
     private String BG() {
@@ -89,7 +93,11 @@ public class DonorController {
         root.setLeft(buildSidebar());
         root.setCenter(buildDashboardPage());
         root.setStyle("-fx-background-color: " + BG() + ";");
-        Scene scene = new Scene(root, 1280, 800);
+        scene = new Scene(root, 1280, 800);
+        
+        // Apply dark mode styles for DatePicker visibility
+        applyDarkModeStylesheet(scene);
+        
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 Donor Dashboard");
         stage.show();
@@ -97,6 +105,12 @@ public class DonorController {
 
     private void refreshTheme() {
         root.setStyle("-fx-background-color: " + BG() + ";");
+        
+        // Manage stylesheets based on theme
+        if (scene != null) {
+            applyDarkModeStylesheet(scene);
+        }
+        
         root.setTop(buildHeader());
         root.setLeft(buildSidebar());
         // Refresh current page
@@ -589,14 +603,15 @@ public class DonorController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        // Fetch fresh data every time (real-time)
         List<Child> allChildren = childService.getChildrenBySponsor(user.getId());
-        List<Donation> allDonations = donationService.getAll();
-        double totalDonated = allDonations.stream().mapToDouble(Donation::getAmount).sum();
+        List<Donation> myDonations = donationService.getByDonorId(user.getId());
+        double totalDonated = myDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
                 statCard("Sponsored Children", String.valueOf(allChildren.size()), "Active sponsorships", PRIMARY),
                 statCard("Total Donated", String.format("\u09F3%,.0f", totalDonated), "All time", SECONDARY),
-                statCard("Donations", String.valueOf(allDonations.size()), "Total records", SECONDARY),
+                statCard("Donations", String.valueOf(myDonations.size()), "Total records", SECONDARY),
                 statCard("Impact Score", "92", "Excellent rating", SECONDARY));
 
         // Sponsored Children cards
@@ -671,14 +686,14 @@ public class DonorController {
             childCards.getChildren().add(card);
         }
 
-        // Recent Donations table
+        // Recent Donations table (only this donor's donations)
         VBox donTable = new VBox(0);
         donTable.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
         HBox donHdr = new HBox();
         donHdr.setPadding(new Insets(16));
         donHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
-        Label donTitle = new Label("Recent Donations");
+        Label donTitle = new Label("Your Recent Donations");
         donTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         donTitle.setTextFill(Color.web(TEXT()));
         Region dsp = new Region();
@@ -703,7 +718,7 @@ public class DonorController {
             h.setStyle("-fx-background-color: " + MUTED() + ";");
             grid.add(h, i, 0);
         }
-        List<Donation> recentDons = allDonations.size() > 5 ? allDonations.subList(0, 5) : allDonations;
+        List<Donation> recentDons = myDonations.size() > 5 ? myDonations.subList(0, 5) : myDonations;
         for (int r = 0; r < recentDons.size(); r++) {
             Donation don = recentDons.get(r);
             Child donChild = childService.getChildById(don.getChildId());
@@ -750,25 +765,20 @@ public class DonorController {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
+        HBox titlebar = new HBox(16);
+        titlebar.setAlignment(Pos.CENTER_LEFT);
         Label title = new Label("Sponsorship & Digital Wallet Management");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button refreshBtn = new Button("🔄 Refresh");
+        refreshBtn.setStyle("-fx-background-color: transparent; -fx-border-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY + "; -fx-border-radius: 4; -fx-cursor: hand; -fx-padding: 6 12;");
+        refreshBtn.setOnAction(e -> root.setCenter(buildSponsorshipPage())); // Rebuild with fresh data
+        titlebar.getChildren().addAll(title, spacer, refreshBtn);
+        
         Label sub = new Label("Track donations and fund utilization");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
-
-        // Child selector (For making direct donations)
-        VBox selBox = new VBox(8);
-        Label selLabel = new Label("Select Child for Donation");
-        selLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
-        ComboBox<String> selCombo = new ComboBox<>();
-        List<Child> allCbChildren = childService.getAllChildren();
-        for (Child ch : allCbChildren) {
-            selCombo.getItems().add(ch.getName() + " (CH-" + (1000 + ch.getId()) + ")");
-        }
-        if (!selCombo.getItems().isEmpty())
-            selCombo.setValue(selCombo.getItems().get(0));
-        selCombo.setPrefWidth(320);
-        selBox.getChildren().addAll(selLabel, selCombo);
 
         List<Donation> spDonations = donationService.getAll();
         double spTotal = spDonations.stream().mapToDouble(Donation::getAmount).sum();
@@ -905,7 +915,7 @@ public class DonorController {
         
         sponsorshipCardsContainer.getChildren().addAll(new Separator(), sponsoredSection, new Separator(), unsponsoredSection);
 
-        page.getChildren().addAll(new VBox(4, title, sub), stats, selBox, fundCard, makeDon, sponsorshipCardsContainer);
+        page.getChildren().addAll(new VBox(4, titlebar, sub), stats, fundCard, makeDon, sponsorshipCardsContainer);
         return wrapScroll(page);
     }
 
@@ -921,15 +931,15 @@ public class DonorController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        List<Donation> donDonations = donationService.getAll();
+        List<Donation> donDonations = donationService.getByDonorId(user.getId());
         double donTotal = donDonations.stream().mapToDouble(Donation::getAmount).sum();
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Donated", String.format("\u09F3%,.0f", donTotal), "All time", SECONDARY),
-                statCard("Donations", String.valueOf(donDonations.size()), "Total records", SECONDARY),
-                statCard("Transactions", String.valueOf(donDonations.size()), "Total donations", MUTED_FG()),
-                statCard("Children Helped", String.valueOf(childService.getAllChildren().size()), "Active sponsorships",
-                        PRIMARY));
+                statCard("Total Donated", String.format("\u09F3%,.0f", donTotal), "By you", SECONDARY),
+                statCard("Donations", String.valueOf(donDonations.size()), "Your records", SECONDARY),
+                statCard("Children Helped", String.valueOf(childService.getChildrenBySponsor(user.getId()).size()), "Actively sponsoring",
+                        PRIMARY),
+                statCard("Impact", "100%", "Of donations given", INFO));
 
         // Transaction table
         VBox tableCard = new VBox(0);
@@ -939,7 +949,7 @@ public class DonorController {
         hdr.setPadding(new Insets(16));
         hdr.setAlignment(Pos.CENTER_LEFT);
         hdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
-        Label tl = new Label("All Transactions");
+        Label tl = new Label("Your Recent Donations");
         tl.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         Region sp1 = new Region();
         HBox.setHgrow(sp1, Priority.ALWAYS);
@@ -954,15 +964,19 @@ public class DonorController {
             java.io.File file = fc.showSaveDialog(stage);
             if (file != null) {
                 try (java.io.PrintWriter pw = new java.io.PrintWriter(file)) {
-                    pw.println("Date,Child,Amount,Purpose,Status");
+                    pw.println("Date,Child,Amount,Time,Status");
                     for (Donation don : donDonations) {
                         Child c = childService.getChildById(don.getChildId());
                         String cName = c != null ? c.getName() : "Child #" + don.getChildId();
+                        String time = "";
+                        if (don.getDate() != null && don.getDate().length() >= 16) {
+                            time = don.getDate().substring(11, 16);
+                        }
                         pw.printf("%s,%s,%.0f,%s,%s%n",
-                                don.getDate() != null ? don.getDate() : "",
+                                don.getDate() != null ? don.getDate().substring(0, 10) : "",
                                 cName,
                                 don.getAmount(),
-                                don.getPurpose() != null ? don.getPurpose() : "",
+                                time,
                                 don.getStatus() != null ? don.getStatus() : "Completed");
                     }
                     showAlert("Success", "Exported " + donDonations.size() + " records to " + file.getName());
@@ -974,7 +988,7 @@ public class DonorController {
         hdr.getChildren().addAll(tl, sp1, exportBtn);
 
         GridPane grid = new GridPane();
-        String[] cols = { "Date", "Child", "Amount", "Purpose", "Status" };
+        String[] cols = { "Date", "Child", "Amount", "Time", "Status" };
         for (int i = 0; i < cols.length; i++) {
             Label h = new Label(cols[i]);
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
@@ -987,9 +1001,13 @@ public class DonorController {
         String[][] rows = donDonations.stream().map(don -> {
             Child donChild = childService.getChildById(don.getChildId());
             String cName = donChild != null ? donChild.getName() : "Child #" + don.getChildId();
-            return new String[] { don.getDate() != null ? don.getDate() : "", cName,
+            String time = "";
+            if (don.getDate() != null && don.getDate().length() >= 16) {
+                time = don.getDate().substring(11, 16); // Extract HH:mm from date
+            }
+            return new String[] { don.getDate() != null ? don.getDate().substring(0, 10) : "", cName,
                     String.format("\u09F3%,.0f", don.getAmount()),
-                    don.getPurpose() != null ? don.getPurpose() : "",
+                    time,
                     don.getStatus() != null ? don.getStatus() : "Completed" };
         }).toArray(String[][]::new);
         for (int r = 0; r < rows.length; r++) {
@@ -1078,19 +1096,26 @@ public class DonorController {
         genBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
         genBtn.setOnAction(e -> {
-            systemLogService.save(new SystemLog("Report", "Generated " + rtCombo.getValue(), user.getUsername(),
+            String reportType = rtCombo.getValue();
+            String dateRange = drCombo.getValue();
+            List<Donation> donations = filterDonationsByDateRange(donationService.getByDonorId(user.getId()), dateRange);
+            String reportContent = generateReportContent(reportType, donations, dateRange);
+            showReportDialog(reportContent, reportType);
+            systemLogService.save(new SystemLog("Report", "Generated " + reportType + " (" + dateRange + ")", user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            showAlert("Report Generated", rtCombo.getValue() + " has been generated successfully.");
         });
         Button pdfBtn = new Button("Export to PDF");
         pdfBtn.setStyle("-fx-background-color: " + MUTED()
                 + "; -fx-text-fill: #1a1a1a; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand; -fx-border-color: "
                 + BORDER() + "; -fx-border-width: 1; -fx-border-radius: 4;");
         pdfBtn.setOnAction(e -> {
-            systemLogService
-                    .save(new SystemLog("Export", "Exported " + rtCombo.getValue() + " to PDF", user.getUsername(),
-                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            showAlert("Export Complete", "Report exported to PDF successfully.");
+            String reportType = rtCombo.getValue();
+            String dateRange = drCombo.getValue();
+            List<Donation> donations = filterDonationsByDateRange(donationService.getByDonorId(user.getId()), dateRange);
+            String reportContent = generateReportContent(reportType, donations, dateRange);
+            exportReportToFile(reportContent, reportType);
+            systemLogService.save(new SystemLog("Export", "Exported " + reportType + " to file", user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
         });
         buttons.getChildren().addAll(genBtn, pdfBtn);
 
@@ -1129,11 +1154,11 @@ public class DonorController {
         form.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        // Load all children
-        java.util.List<Child> children = childService.getAllChildren();
+        // Load only children sponsored by the donor
+        java.util.List<Child> children = childService.getChildrenBySponsor(user.getId());
         
         // Child selection
-        Label childLabel = new Label("Select Child");
+        Label childLabel = new Label("Select Your Sponsored Child");
         childLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
         childLabel.setTextFill(Color.web(TEXT()));
         
@@ -1141,7 +1166,7 @@ public class DonorController {
         for (Child c : children) {
             childCombo.getItems().add(c.getId() + " - " + c.getName());
         }
-        childCombo.setPromptText("Choose a child to donate to...");
+        childCombo.setPromptText("Choose your sponsored child...");
         childCombo.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-text-fill: " + TEXT() + "; -fx-border-radius: 4; -fx-padding: 10; -fx-font-size: 13px;");
         
@@ -1176,6 +1201,38 @@ public class DonorController {
         amtField.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-text-fill: " + TEXT() + "; -fx-prompt-text-fill: " + MUTED_FG() + "; -fx-border-radius: 4; -fx-padding: 10; -fx-font-size: 13px;");
 
+        // Purpose dropdown
+        Label purposeLabel = new Label("Purpose of Donation");
+        purposeLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        purposeLabel.setTextFill(Color.web(TEXT()));
+        ComboBox<String> purposeCombo = new ComboBox<>();
+        purposeCombo.getItems().addAll(
+            "General Welfare",
+            "Education",
+            "Medical Care",
+            "Food & Nutrition",
+            "Clothing",
+            "Housing & Shelter",
+            "Emergency Support",
+            "Skill Development"
+        );
+        purposeCombo.setValue("General Welfare");
+        purposeCombo.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-text-fill: " + TEXT() + "; -fx-border-radius: 4; -fx-padding: 10; -fx-font-size: 13px;");
+        
+        // Update purpose when child is selected
+        childCombo.setOnAction(e -> {
+            String selected = childCombo.getValue();
+            if (selected != null && !selected.isEmpty()) {
+                int childId = Integer.parseInt(selected.split(" - ")[0]);
+                Child selectedChild = childService.getChildById(childId);
+                // Set purpose based on child needs (could be expanded with more logic)
+                if (selectedChild != null) {
+                    purposeCombo.setValue("General Welfare");
+                }
+            }
+        });
+
         Label msgLabel = new Label("Personal Message (Optional)");
         msgLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
         msgLabel.setTextFill(Color.web(TEXT()));
@@ -1185,6 +1242,10 @@ public class DonorController {
         msgArea.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-text-fill: " + TEXT() + "; -fx-font-size: 13px; -fx-border-radius: 4; -fx-padding: 10; -fx-control-inner-background: " + CARD() + ";");
         msgArea.setWrapText(true);
+        
+        // Make purpose hidden — auto-use "General Welfare" for simplicity
+        purposeCombo.setVisible(false);
+        purposeLabel.setVisible(false);
 
         Button submit = new Button("Submit Donation");
         submit.setMaxWidth(Double.MAX_VALUE);
@@ -1228,14 +1289,15 @@ public class DonorController {
             // Extract child ID from selected text (format: "ID - Name")
             int childId = Integer.parseInt(selectedChild.split(" - ")[0]);
             
-            Donation d = new Donation(user.getId(), childId, amount, "General Welfare", LocalDate.now().toString());
+            String purpose = purposeCombo.getValue() != null ? purposeCombo.getValue() : "General Welfare";
+            Donation d = new Donation(user.getId(), childId, amount, purpose, LocalDate.now().toString());
             donationService.save(d);
             systemLogService
-                    .save(new SystemLog("Donation", "Submitted donation of \u09F3" + amtText + " to child ID " + childId, user.getUsername(),
+                    .save(new SystemLog("Donation", "Submitted donation of \u09F3" + amtText + " to child ID " + childId + " for " + purpose, user.getUsername(),
                             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
             Alert success = new Alert(Alert.AlertType.INFORMATION, "Donation submitted successfully!");
             success.showAndWait();
-            root.setCenter(buildSponsorshipPage());
+            root.setCenter(buildSponsorshipPage()); // Return to sponsorship page with fresh data
         });
 
         // ═══ PAYMENT METHOD SECTION ═══
@@ -1331,6 +1393,35 @@ public class DonorController {
         payNote.setFont(Font.font("Segoe UI", 10));
         payNote.setTextFill(Color.web(MUTED_FG()));
 
+        // Check if donor has any sponsored children
+        if (children.isEmpty()) {
+            // Show message if no sponsored children
+            Label noChildMsg = new Label("You haven't sponsored any children yet.");
+            noChildMsg.setFont(Font.font("Segoe UI", 14));
+            noChildMsg.setTextFill(Color.web(MUTED_FG()));
+            noChildMsg.setWrapText(true);
+            
+            Label guideMsg = new Label("Visit the Sponsorship page to choose a child to support first.");
+            guideMsg.setFont(Font.font("Segoe UI", 13));
+            guideMsg.setTextFill(Color.web(MUTED_FG()));
+            guideMsg.setWrapText(true);
+            
+            Button sponsorBtn = new Button("Go to Sponsorship");
+            sponsorBtn.setStyle("-fx-background-color: " + PRIMARY
+                    + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 13px; -fx-cursor: hand;");
+            sponsorBtn.setOnAction(e -> root.setCenter(buildSponsorshipPage()));
+            
+            VBox noChildCard = new VBox(16);
+            noChildCard.setPadding(new Insets(32));
+            noChildCard.setAlignment(Pos.CENTER);
+            noChildCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                    + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+            noChildCard.getChildren().addAll(noChildMsg, guideMsg, sponsorBtn);
+            
+            page.getChildren().addAll(backBtn, title, noChildCard);
+            return wrapScroll(page);
+        }
+
         form.getChildren().addAll(validationError, childLabel, childCombo, amtLabel, amtField,
                 payLabel, payCards, payNote, msgLabel, msgArea, submit);
 
@@ -1415,8 +1506,343 @@ public class DonorController {
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;");
         donate.setOnAction(e -> root.setCenter(buildDonationForm(child[1])));
 
-        card.getChildren().addAll(hdr, new Separator(), details, donate);
+        // ═══════════ MEDICAL RECORD SECTION (READ-ONLY) ═══════════
+        VBox medSection = new VBox(12);
+        Label medicalTitle = new Label("Medical Information");
+        medicalTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+        medicalTitle.setTextFill(Color.web(TEXT()));
+        
+        if (!meds.isEmpty()) {
+            MedicalRecord med = meds.get(0);
+            GridPane medGrid = new GridPane();
+            medGrid.setHgap(40);
+            medGrid.setVgap(10);
+            
+            String[][] medData = {
+                    { "Blood Group", med.getBloodGroup() != null ? med.getBloodGroup() : "N/A" },
+                    { "Medical Condition", med.getMedicalCondition() != null ? med.getMedicalCondition() : "N/A" },
+                    { "Last Checkup", med.getLastCheckup() != null ? med.getLastCheckup() : "N/A" }
+            };
+            for (int r = 0; r < medData.length; r++) {
+                Label l = new Label(medData[r][0]);
+                l.setTextFill(Color.web(MUTED_FG()));
+                Label v = new Label(medData[r][1]);
+                v.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+                v.setTextFill(Color.web(TEXT()));
+                medGrid.add(l, 0, r);
+                medGrid.add(v, 1, r);
+            }
+            medSection.getChildren().addAll(medicalTitle, medGrid);
+        } else {
+            Label noMed = new Label("No medical records available");
+            noMed.setTextFill(Color.web(MUTED_FG()));
+            medSection.getChildren().addAll(medicalTitle, noMed);
+        }
+        
+        // ═══════════ EDUCATION RECORD SECTION (READ-ONLY) ═══════════
+        VBox eduSection = new VBox(12);
+        Label educationTitle = new Label("Education Information");
+        educationTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+        educationTitle.setTextFill(Color.web(TEXT()));
+        
+        if (!edus.isEmpty()) {
+            EducationRecord edu = edus.get(0);
+            GridPane eduGrid = new GridPane();
+            eduGrid.setHgap(40);
+            eduGrid.setVgap(10);
+            
+            String[][] eduData = {
+                    { "School Name", edu.getSchoolName() != null ? edu.getSchoolName() : "N/A" },
+                    { "Grade/Class", edu.getGrade() != null ? edu.getGrade() : "N/A" },
+                    { "Attendance %", String.valueOf(edu.getAttendancePercentage()) }
+            };
+            for (int r = 0; r < eduData.length; r++) {
+                Label l = new Label(eduData[r][0]);
+                l.setTextFill(Color.web(MUTED_FG()));
+                Label v = new Label(eduData[r][1]);
+                v.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+                v.setTextFill(Color.web(TEXT()));
+                eduGrid.add(l, 0, r);
+                eduGrid.add(v, 1, r);
+            }
+            eduSection.getChildren().addAll(educationTitle, eduGrid);
+        } else {
+            Label noEdu = new Label("No education records available");
+            noEdu.setTextFill(Color.web(MUTED_FG()));
+            eduSection.getChildren().addAll(educationTitle, noEdu);
+        }
+
+        card.getChildren().addAll(hdr, new Separator(), details, new Separator(), 
+                medSection, new Separator(), eduSection, new Separator(), donate);
         page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);
+    }
+
+    private void applyDarkModeStylesheet(Scene scene) {
+        // Remove all existing stylesheets to prevent theme mixing
+        scene.getStylesheets().clear();
+        
+        // Only apply dark mode stylesheet if dark mode is enabled
+        if (!ThemeManager.isDarkMode()) {
+            return; // Light mode uses default JavaFX styling
+        }
+        
+        // Create comprehensive dark mode CSS for all controls
+        String darkModeCSS = ".text-input { -fx-text-fill: #e2e8f0; -fx-control-inner-background: #16213e; }"
+                + ".combo-box { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box .list-cell { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box-popup .list-view { -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-picker { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup { -fx-background-color: #16213e; }"
+                + ".date-picker-popup .button { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .button:hover { -fx-background-color: #1a3a52; }"
+                + ".date-picker-popup .label { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .spinner .text-field { -fx-control-inner-background: #0f3460; -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .text { -fx-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .button { -fx-text-fill: #e2e8f0; }"
+                + ".date-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; -fx-padding: 4px; }"
+                + ".date-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-cell:focused { -fx-background-color: #2563eb; -fx-text-fill: white; }"
+                + ".date-cell:today { -fx-border-color: #2563eb; -fx-border-width: 1; }"
+                + ".date-cell:selected { -fx-background-color: #2563eb; -fx-text-fill: white; }";
+        
+        // Add stylesheet to scene
+        try {
+            java.io.File tempFile = java.io.File.createTempFile("darkmode", ".css");
+            tempFile.deleteOnExit();
+            try (java.io.FileWriter writer = new java.io.FileWriter(tempFile)) {
+                writer.write(darkModeCSS);
+            }
+            scene.getStylesheets().add("file:///" + tempFile.getAbsolutePath().replace("\\", "/"));
+        } catch (java.io.IOException e) {
+            System.err.println("Failed to apply dark mode stylesheet: " + e.getMessage());
+        }
+    }
+
+    // ═══════════ REPORT GENERATION HELPERS ═══════════
+    private List<Donation> filterDonationsByDateRange(List<Donation> donations, String dateRange) {
+        LocalDate now = LocalDate.now();
+        LocalDate startDate = switch (dateRange) {
+            case "Last 30 Days" -> now.minusDays(30);
+            case "Last 3 Months" -> now.minusMonths(3);
+            case "Last Year" -> now.minusYears(1);
+            default -> LocalDate.ofEpochDay(0); // All time
+        };
+        
+        return donations.stream()
+            .filter(d -> {
+                LocalDate donationDate = LocalDate.parse(d.getDate().substring(0, 10));
+                return donationDate.isAfter(startDate) || donationDate.isEqual(startDate);
+            })
+            .toList();
+    }
+
+    private String generateReportContent(String reportType, List<Donation> donations, String dateRange) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("════════════════════════════════════════════════════════\n");
+        sb.append("GUARDIANLINK DONOR REPORT\n");
+        sb.append("════════════════════════════════════════════════════════\n\n");
+        
+        sb.append("Report Type: ").append(reportType).append("\n");
+        sb.append("Date Range: ").append(dateRange).append("\n");
+        sb.append("Donor: ").append(user.getUsername()).append("\n");
+        sb.append("Generated: ").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n\n");
+        
+        switch (reportType) {
+            case "Donation Summary":
+                sb.append(generateDonationSummary(donations));
+                break;
+            case "Impact Report":
+                sb.append(generateImpactReport(donations));
+                break;
+            case "Tax Receipt":
+                sb.append(generateTaxReceipt(donations));
+                break;
+        }
+        
+        return sb.toString();
+    }
+
+    private String generateDonationSummary(List<Donation> donations) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("DONATION SUMMARY\n");
+        sb.append("════════════════════════════════════════════════════════\n\n");
+        
+        double totalAmount = donations.stream().mapToDouble(Donation::getAmount).sum();
+        double avgAmount = donations.isEmpty() ? 0 : totalAmount / donations.size();
+        
+        sb.append("Total Donations: ").append(String.format("৳%,.2f", totalAmount)).append("\n");
+        sb.append("Number of Donations: ").append(donations.size()).append("\n");
+        sb.append("Average Donation: ").append(String.format("৳%,.2f", avgAmount)).append("\n\n");
+        
+        sb.append("DONATION DETAILS\n");
+        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append(String.format("%-12s %-20s %-15s %-20s\n", "Date", "Child", "Amount", "Purpose"));
+        sb.append("────────────────────────────────────────────────────────\n");
+        
+        for (Donation d : donations) {
+            String childName = "General";
+            if (d.getChildId() > 0) {
+                Child child = childService.getChildById(d.getChildId());
+                if (child != null) {
+                    childName = child.getName();
+                }
+            }
+            sb.append(String.format("%-12s %-20s %-15s %-20s\n", 
+                d.getDate().substring(0, 10),
+                childName.length() > 19 ? childName.substring(0, 19) : childName,
+                String.format("৳%,.2f", d.getAmount()),
+                d.getPurpose() != null ? d.getPurpose() : "General Welfare"));
+        }
+        
+        return sb.toString();
+    }
+
+    private String generateImpactReport(List<Donation> donations) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("IMPACT REPORT\n");
+        sb.append("════════════════════════════════════════════════════════\n\n");
+        
+        double totalDonated = donations.stream().mapToDouble(Donation::getAmount).sum();
+        List<Child> sponsoredChildren = childService.getChildrenBySponsor(user.getId());
+        int medicalRecords = sponsoredChildren.isEmpty() ? 0 : medicalRecordService.getRecordsByChildId(sponsoredChildren.get(0).getId()).size();
+        int educationRecords = sponsoredChildren.isEmpty() ? 0 : educationRecordService.getRecordsByChildId(sponsoredChildren.get(0).getId()).size();
+        
+        sb.append("IMPACT METRICS\n");
+        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append("Total Amount Donated: ").append(String.format("৳%,.2f", totalDonated)).append("\n");
+        sb.append("Number of Donations: ").append(donations.size()).append("\n");
+        sb.append("Children Sponsored: ").append(sponsoredChildren.size()).append("\n");
+        sb.append("Medical Records Supported: ").append(medicalRecords).append("\n");
+        sb.append("Education Records Supported: ").append(educationRecords).append("\n\n");
+        
+        sb.append("SPONSORED CHILDREN\n");
+        sb.append("────────────────────────────────────────────────────────\n");
+        if (sponsoredChildren.isEmpty()) {
+            sb.append("No children currently sponsored.\n");
+        } else {
+            for (Child child : sponsoredChildren) {
+                sb.append("• ").append(child.getName()).append(" (Age: ").append(child.getAge()).append(")\n");
+            }
+        }
+        
+        return sb.toString();
+    }
+
+    private String generateTaxReceipt(List<Donation> donations) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("════════════════════════════════════════════════════════\n");
+        sb.append("OFFICIAL TAX RECEIPT\n");
+        sb.append("════════════════════════════════════════════════════════\n\n");
+        
+        sb.append("Donor Name: ").append(user.getUsername()).append("\n");
+        sb.append("Tax ID: GDL-").append(user.getId()).append("\n");
+        sb.append("Receipt Date: ").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))).append("\n\n");
+        
+        double totalAmount = donations.stream().mapToDouble(Donation::getAmount).sum();
+        
+        sb.append("DONATION RECEIPT\n");
+        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append("Total Charitable Donations: ").append(String.format("৳%,.2f", totalAmount)).append("\n");
+        sb.append("Number of Donations: ").append(donations.size()).append("\n\n");
+        
+        sb.append("TAX INFORMATION\n");
+        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append("Organization: GuardianLink NGO\n");
+        sb.append("Registration: Approved for tax deductions\n");
+        sb.append("Tax Deductible: Yes\n\n");
+        
+        sb.append("TRANSACTION HISTORY\n");
+        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append(String.format("%-12s %-20s %-15s\n", "Date", "Recipient", "Amount"));
+        sb.append("────────────────────────────────────────────────────────\n");
+        
+        for (Donation d : donations) {
+            String childName = "General Fund";
+            if (d.getChildId() > 0) {
+                Child child = childService.getChildById(d.getChildId());
+                if (child != null) {
+                    childName = child.getName();
+                }
+            }
+            sb.append(String.format("%-12s %-20s %-15s\n", 
+                d.getDate().substring(0, 10),
+                childName.length() > 19 ? childName.substring(0, 19) : childName,
+                String.format("৳%,.2f", d.getAmount())));
+        }
+        
+        sb.append("\n════════════════════════════════════════════════════════\n");
+        sb.append("This is an official receipt for tax purposes.\n");
+        sb.append("════════════════════════════════════════════════════════\n");
+        
+        return sb.toString();
+    }
+
+    private void showReportDialog(String reportContent, String reportTitle) {
+        Stage reportStage = new Stage();
+        reportStage.setTitle(reportTitle);
+        reportStage.setWidth(800);
+        reportStage.setHeight(600);
+        
+        VBox dialogBox = new VBox(12);
+        dialogBox.setPadding(new Insets(16));
+        
+        Label title = new Label(reportTitle);
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+        
+        TextArea reportArea = new TextArea();
+        reportArea.setText(reportContent);
+        reportArea.setWrapText(true);
+        reportArea.setEditable(false);
+        reportArea.setStyle("-fx-control-inner-background: " + CARD() + "; -fx-text-fill: " + TEXT() + ";");
+        reportArea.setFont(Font.font("Courier New", 11));
+        
+        HBox buttonBox = new HBox(12);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        
+        Button copyBtn = new Button("Copy to Clipboard");
+        copyBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 8 16;");
+        copyBtn.setOnAction(e -> {
+            Clipboard clipboard = Clipboard.getSystemClipboard();
+            ClipboardContent content = new ClipboardContent();
+            content.putString(reportContent);
+            clipboard.setContent(content);
+            showAlert("Copied", "Report copied to clipboard!");
+        });
+        
+        Button closeBtn = new Button("Close");
+        closeBtn.setStyle("-fx-background-color: " + MUTED() + "; -fx-padding: 8 16;");
+        closeBtn.setOnAction(e -> reportStage.close());
+        
+        buttonBox.getChildren().addAll(copyBtn, closeBtn);
+        
+        dialogBox.getChildren().addAll(title, reportArea, buttonBox);
+        
+        Scene scene = new Scene(new ScrollPane(dialogBox));
+        reportStage.setScene(scene);
+        reportStage.show();
+    }
+
+    private void exportReportToFile(String reportContent, String reportType) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export Report");
+        fileChooser.setInitialFileName(reportType.replace(" ", "_") + "_" + LocalDate.now() + ".txt");
+        fileChooser.getExtensionFilters().addAll(
+            new FileChooser.ExtensionFilter("Text Files", "*.txt"),
+            new FileChooser.ExtensionFilter("All Files", "*.*")
+        );
+        
+        java.io.File file = fileChooser.showSaveDialog(stage);
+        if (file != null) {
+            try (java.io.FileWriter writer = new java.io.FileWriter(file)) {
+                writer.write(reportContent);
+                showAlert("Success", "Report exported to:\n" + file.getAbsolutePath());
+            } catch (java.io.IOException e) {
+                showAlert("Error", "Failed to export report: " + e.getMessage());
+            }
+        }
     }
 }

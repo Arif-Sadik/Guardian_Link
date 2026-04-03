@@ -25,4 +25,11 @@ public class EducationRecordService {
     public void addRecord(EducationRecord record) {
         repository.save(record);
     }
+
+    /**
+     * Updates an existing education record.
+     */
+    public void updateRecord(EducationRecord record) {
+        repository.update(record);
+    }
 }

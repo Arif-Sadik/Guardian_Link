@@ -58,6 +58,7 @@ public class AdminController {
     private final MedicalRecordService medicalRecordService = new MedicalRecordService();
     private final EducationRecordService educationRecordService = new EducationRecordService();
     private BorderPane root;
+    private Scene scene;
     private VBox sidebar;
     private String activePage = "dashboard";
     private boolean isShowingForm = false; // Flag to prevent auto-refresh during form display
@@ -143,6 +144,11 @@ public class AdminController {
         refreshTimer.play();
 
         Scene scene = new Scene(root, 1280, 800);
+        this.scene = scene; // Store scene reference for stylesheet management
+        
+        // Apply dark mode styles for improved text visibility
+        applyDarkModeStylesheet(scene);
+        
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 System Administrator");
         stage.show();
@@ -150,6 +156,12 @@ public class AdminController {
 
     private void refreshTheme() {
         root.setStyle("-fx-background-color: " + BG() + ";");
+        
+        // Manage stylesheets based on theme
+        if (scene != null) {
+            applyDarkModeStylesheet(scene);
+        }
+        
         root.setTop(buildHeader());
         root.setLeft(buildSidebar());
         // Refresh current page
@@ -2421,23 +2433,26 @@ public class AdminController {
         orgBox.getItems().addAll("Hope Foundation", "Bright Future NGO", "Sunrise Academy", "Community Care Center", "Other");
         orgBox.setPromptText("Select Organization");
         orgBox.setMaxWidth(Double.MAX_VALUE);
-        orgBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
+        String comboStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT()
+                + "; -fx-font-size: 13px;";
+        orgBox.setStyle(comboStyle);
         
         // Date picker with calendar for Date of Birth
         javafx.scene.control.DatePicker dobPicker = new javafx.scene.control.DatePicker();
         dobPicker.setPromptText("Select Date of Birth");
         dobPicker.setMaxWidth(Double.MAX_VALUE);
-        dobPicker.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
+        String datePickerStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT()
+                + "; -fx-padding: 8 12; -fx-font-size: 13px;";
+        dobPicker.setStyle(datePickerStyle);
         
         // Status dropdown
         ComboBox<String> statusBox = new ComboBox<>();
         statusBox.getItems().addAll("Active", "Graduated", "Inactive");
         statusBox.setValue("Active");
         statusBox.setMaxWidth(Double.MAX_VALUE);
-        statusBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
+        statusBox.setStyle(comboStyle);
         
         // Caregiver assignment dropdown
         ComboBox<String> caregiverBox = new ComboBox<>();
@@ -2454,8 +2469,7 @@ public class AdminController {
             caregiverMap.put(displayName, cg.getId());
         }
         caregiverBox.setValue("-- No Assignment --");
-        caregiverBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT() + ";");
+        caregiverBox.setStyle(comboStyle);
 
         // === Photo Upload ===
         Button photoBtn = new Button("Select Photo");
@@ -2473,7 +2487,7 @@ public class AdminController {
 
         String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
-                + TEXT() + ";";
+                + TEXT() + "; -fx-font-size: 13px; -fx-prompt-text-fill: " + ThemeManager.getMutedFg() + ";";
         nameField.setStyle(fieldStyle);
         ageField.setStyle(fieldStyle);
         genderBox.setStyle(fieldStyle);
@@ -2603,6 +2617,13 @@ public class AdminController {
         statusBox.getItems().addAll("Active", "Graduated", "Inactive");
         statusBox.setValue(child.getStatus() != null ? child.getStatus() : "Active");
         
+        // Apply combo box styling before populating caregivers
+        String comboStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT()
+                + "; -fx-font-size: 13px;";
+        genderBox.setStyle(comboStyle);
+        statusBox.setStyle(comboStyle);
+        
         // Caregiver assignment dropdown
         ComboBox<String> caregiverBox = new ComboBox<>();
         caregiverBox.setPromptText("Select Caregiver (Optional)");
@@ -2630,6 +2651,9 @@ public class AdminController {
         } else {
             caregiverBox.setValue("-- No Assignment --");
         }
+        
+        // Apply combo style to caregiver box
+        caregiverBox.setStyle(comboStyle);
 
         // === Photo Upload ===
         Button photoBtn = new Button(child.getPhotoPath() != null ? "Change Photo" : "Select Photo");
@@ -2647,7 +2671,7 @@ public class AdminController {
 
         String fieldStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
-                + TEXT() + ";";
+                + TEXT() + "; -fx-font-size: 13px; -fx-prompt-text-fill: " + ThemeManager.getMutedFg() + ";";
         nameField.setStyle(fieldStyle);
         ageField.setStyle(fieldStyle);
         orgField.setStyle(fieldStyle);
@@ -2713,97 +2737,115 @@ public class AdminController {
         validationError.setWrapText(true);
         
         saveBtn.setOnAction(e -> {
-            // Clear previous error
-            validationError.setVisible(false);
-            validationError.setText("");
-            
-            String name = nameField.getText().trim();
-            String ageText = ageField.getText().trim();
-            if (name.isEmpty() || ageText.isEmpty()) {
-                validationError.setText("⚠ Name and Age are required.");
-                validationError.setVisible(true);
-                return;
-            }
-            int age;
             try {
-                age = Integer.parseInt(ageText);
-            } catch (NumberFormatException ex) {
-                validationError.setText("⚠ Age must be a number. " + ageText + " is not valid.");
-                validationError.setVisible(true);
-                return;
-            }
-            
-            // Track previous caregiver for notifications
-            Integer previousCaregiverId = child.getAssignedCaregiverId();
-            String selectedCaregiver = caregiverBox.getValue();
-            Integer newCaregiverId = null;
-            
-            if (!selectedCaregiver.equals("-- No Assignment --")) {
-                newCaregiverId = caregiverMap.get(selectedCaregiver);
-            }
-            
-            // Update child details
-            child.setName(name);
-            child.setAge(age);
-            child.setGender(genderBox.getValue());
-            child.setOrganization(orgField.getText().trim());
-            child.setDateOfBirth(dobField.getText().trim());
-            child.setStatus(statusBox.getValue());
-            child.setPhotoPath(newPhotoPath[0]);
-            
-            // Handle caregiver changes
-            if (previousCaregiverId != null && newCaregiverId == null) {
-                // Caregiver was removed
-                childService.removeCaregiverFromChild(childId, user.getUsername());
-                child.setAssignedCaregiverId(null);
-            } else if (newCaregiverId != null && (previousCaregiverId == null || !previousCaregiverId.equals(newCaregiverId))) {
-                // Caregiver was assigned or changed
-                child.setAssignedCaregiverId(newCaregiverId);
-                childService.assignCaregiverToChild(childId, newCaregiverId, user.getUsername());
-                systemLogService.save(new SystemLog("Caregiver Assignment",
-                        "Assigned child " + name + " to caregiver ID " + newCaregiverId, user.getUsername(),
-                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            } else {
-                child.setAssignedCaregiverId(newCaregiverId);
-            }
-            
-            childService.updateChild(child);
-            
-            // Save medical record
-            String bloodGroup = medicalBloodGroup.getText().trim();
-            String medCondition = medicalCondition.getText().trim();
-            String lastCheckup = medicalCheckup.getText().trim();
-            if (!bloodGroup.isEmpty() || !medCondition.isEmpty() || !lastCheckup.isEmpty()) {
-                java.util.List<MedicalRecord> existingMed = medicalRecordService.getRecordsByChildId(childId);
-                if (existingMed.isEmpty()) {
-                    medicalRecordService.addRecord(new MedicalRecord(childId, bloodGroup, medCondition, lastCheckup));
+                // Clear previous error
+                validationError.setVisible(false);
+                validationError.setText("");
+                
+                String name = nameField.getText().trim();
+                String ageText = ageField.getText().trim();
+                if (name.isEmpty() || ageText.isEmpty()) {
+                    validationError.setText("⚠ Name and Age are required.");
+                    validationError.setVisible(true);
+                    return;
                 }
-            }
-            
-            // Save education record
-            String schoolName = eduSchool.getText().trim();
-            String grade = eduGrade.getText().trim();
-            String attendanceStr = eduAttendance.getText().trim();
-            if (!schoolName.isEmpty() || !grade.isEmpty() || !attendanceStr.isEmpty()) {
-                double attendance = 0;
+                int age;
                 try {
-                    attendance = Double.parseDouble(attendanceStr);
+                    age = Integer.parseInt(ageText);
                 } catch (NumberFormatException ex) {
-                    /* keep as 0 */ }
-                java.util.List<EducationRecord> existingEdu = educationRecordService.getRecordsByChildId(childId);
-                if (existingEdu.isEmpty()) {
-                    educationRecordService.addRecord(new EducationRecord(childId, schoolName, grade, attendance));
+                    validationError.setText("⚠ Age must be a number. " + ageText + " is not valid.");
+                    validationError.setVisible(true);
+                    return;
                 }
+                
+                // Track previous caregiver for notifications
+                Integer previousCaregiverId = child.getAssignedCaregiverId();
+                String selectedCaregiver = caregiverBox.getValue();
+                Integer newCaregiverId = null;
+                
+                if (!selectedCaregiver.equals("-- No Assignment --")) {
+                    newCaregiverId = caregiverMap.get(selectedCaregiver);
+                }
+                
+                // Update child details
+                child.setName(name);
+                child.setAge(age);
+                child.setGender(genderBox.getValue());
+                child.setOrganization(orgField.getText().trim());
+                child.setDateOfBirth(dobField.getText().trim());
+                child.setStatus(statusBox.getValue());
+                child.setPhotoPath(newPhotoPath[0]);
+                
+                // Handle caregiver changes
+                if (previousCaregiverId != null && newCaregiverId == null) {
+                    // Caregiver was removed
+                    childService.removeCaregiverFromChild(childId, user.getUsername());
+                    child.setAssignedCaregiverId(null);
+                } else if (newCaregiverId != null && (previousCaregiverId == null || !previousCaregiverId.equals(newCaregiverId))) {
+                    // Caregiver was assigned or changed
+                    child.setAssignedCaregiverId(newCaregiverId);
+                    childService.assignCaregiverToChild(childId, newCaregiverId, user.getUsername());
+                    systemLogService.save(new SystemLog("Caregiver Assignment",
+                            "Assigned child " + name + " to caregiver ID " + newCaregiverId, user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                } else {
+                    child.setAssignedCaregiverId(newCaregiverId);
+                }
+                
+                childService.updateChild(child);
+                
+                // Save medical record
+                String bloodGroup = medicalBloodGroup.getText().trim();
+                String medCondition = medicalCondition.getText().trim();
+                String lastCheckup = medicalCheckup.getText().trim();
+                if (!bloodGroup.isEmpty() || !medCondition.isEmpty() || !lastCheckup.isEmpty()) {
+                    java.util.List<MedicalRecord> existingMed = medicalRecordService.getRecordsByChildId(childId);
+                    if (existingMed.isEmpty()) {
+                        medicalRecordService.addRecord(new MedicalRecord(childId, bloodGroup, medCondition, lastCheckup));
+                    } else {
+                        MedicalRecord medRec = existingMed.get(0);
+                        medRec.setBloodGroup(bloodGroup);
+                        medRec.setMedicalCondition(medCondition);
+                        medRec.setLastCheckup(lastCheckup);
+                        medicalRecordService.updateRecord(medRec);
+                    }
+                }
+                
+                // Save education record
+                String schoolName = eduSchool.getText().trim();
+                String grade = eduGrade.getText().trim();
+                String attendanceStr = eduAttendance.getText().trim();
+                if (!schoolName.isEmpty() || !grade.isEmpty() || !attendanceStr.isEmpty()) {
+                    double attendance = 0;
+                    try {
+                        attendance = Math.min(100, Math.max(0, Double.parseDouble(attendanceStr))); // Clamp to 0-100
+                    } catch (NumberFormatException ex) {
+                        /* keep as 0 */ }
+                    java.util.List<EducationRecord> existingEdu = educationRecordService.getRecordsByChildId(childId);
+                    if (existingEdu.isEmpty()) {
+                        educationRecordService.addRecord(new EducationRecord(childId, schoolName, grade, attendance));
+                    } else {
+                        EducationRecord eduRec = existingEdu.get(0);
+                        eduRec.setSchoolName(schoolName);
+                        eduRec.setGrade(grade);
+                        eduRec.setAttendancePercentage(attendance);
+                        educationRecordService.updateRecord(eduRec);
+                    }
+                }
+                systemLogService.save(new SystemLog("Data Update",
+                        "Updated child profile: " + name, user.getUsername(),
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                
+                // Use showAndWait to ensure completion before navigating
+                Alert success = new Alert(Alert.AlertType.INFORMATION, "Child updated successfully!");
+                success.showAndWait();
+                isShowingForm = false;
+                root.setCenter(buildChildProfileDetailView(childId));
+            } catch (Exception ex) {
+                validationError.setText("⚠ Error updating child: " + ex.getMessage());
+                validationError.setVisible(true);
+                ex.printStackTrace();
             }
-            systemLogService.save(new SystemLog("Data Update",
-                    "Updated child profile: " + name, user.getUsername(),
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            
-            // Use showAndWait to ensure completion before navigating
-            Alert success = new Alert(Alert.AlertType.INFORMATION, "Child updated successfully!");
-            success.showAndWait();
-            isShowingForm = false;
-            root.setCenter(buildChildProfileDetailView(childId));
         });
 
         form.getChildren().addAll(
@@ -2845,5 +2887,49 @@ public class AdminController {
         sp.setFitToWidth(true);
         sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
         return sp;
+    }
+
+    private void applyDarkModeStylesheet(Scene scene) {
+        // Remove all existing stylesheets to prevent theme mixing
+        scene.getStylesheets().clear();
+        
+        // Only apply dark mode stylesheet if dark mode is enabled
+        if (!ThemeManager.isDarkMode()) {
+            return; // Light mode uses default JavaFX styling
+        }
+        
+        // Create comprehensive dark mode CSS for all controls
+        String darkModeCSS = ".text-input { -fx-text-fill: #e2e8f0; -fx-control-inner-background: #16213e; }"
+                + ".combo-box { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box .list-cell { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box-popup .list-view { -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-picker { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup { -fx-background-color: #16213e; }"
+                + ".date-picker-popup .button { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .button:hover { -fx-background-color: #1a3a52; }"
+                + ".date-picker-popup .label { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .spinner .text-field { -fx-control-inner-background: #0f3460; -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .text { -fx-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .button { -fx-text-fill: #e2e8f0; }"
+                + ".date-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; -fx-padding: 4px; }"
+                + ".date-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-cell:focused { -fx-background-color: #2563eb; -fx-text-fill: white; }"
+                + ".date-cell:today { -fx-border-color: #2563eb; -fx-border-width: 1; }"
+                + ".date-cell:selected { -fx-background-color: #2563eb; -fx-text-fill: white; }";
+        
+        // Add stylesheet to scene
+        try {
+            java.io.File tempFile = java.io.File.createTempFile("darkmode", ".css");
+            tempFile.deleteOnExit();
+            try (java.io.FileWriter writer = new java.io.FileWriter(tempFile)) {
+                writer.write(darkModeCSS);
+            }
+            scene.getStylesheets().add("file:///" + tempFile.getAbsolutePath().replace("\\", "/"));
+        } catch (IOException e) {
+            System.err.println("Failed to apply dark mode stylesheet: " + e.getMessage());
+        }
     }
 }

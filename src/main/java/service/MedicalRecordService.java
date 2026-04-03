@@ -25,4 +25,11 @@ public class MedicalRecordService {
     public void addRecord(MedicalRecord record) {
         repository.save(record);
     }
+
+    /**
+     * Updates an existing medical record.
+     */
+    public void updateRecord(MedicalRecord record) {
+        repository.update(record);
+    }
 }

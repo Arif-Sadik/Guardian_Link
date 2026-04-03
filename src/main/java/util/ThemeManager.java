@@ -71,4 +71,34 @@ public class ThemeManager {
     public static String getThemeName() {
         return darkMode ? "Dark" : "Light";
     }
+
+    /**
+     * Returns CSS stylesheet for DatePicker popup styling to support dark mode.
+     * Apply this to the Scene: scene.getStylesheets().add(themeCSS);
+     */
+    public static String getDatePickerStylesheet() {
+        if (darkMode) {
+            return "data:text/css," +
+                    ".date-picker-popup { -fx-background-color: " + DARK_CARD + "; }" +
+                    ".date-picker-popup .button { -fx-text-fill: " + DARK_TEXT + "; -fx-background-color: " + DARK_CARD + "; }" +
+                    ".date-picker-popup .label { -fx-text-fill: " + DARK_TEXT + "; }" +
+                    ".date-picker-popup .spinner { -fx-text-fill: " + DARK_TEXT + "; }" +
+                    ".date-picker-popup .spinner .button { -fx-text-fill: " + DARK_TEXT + "; }" +
+                    ".date-picker-popup .spinner .text-field { -fx-control-inner-background: " + DARK_MUTED + "; -fx-text-fill: " + DARK_TEXT + "; }" +
+                    ".date-cell { -fx-background-color: " + DARK_CARD + "; -fx-text-fill: " + DARK_TEXT + "; }" +
+                    ".date-cell:hover { -fx-background-color: " + DARK_BORDER + "; }" +
+                    ".date-cell:focused { -fx-background-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY_FG + "; }" +
+                    ".date-cell.today { -fx-border-color: " + PRIMARY + "; }" +
+                    ".date-cell.selected { -fx-background-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY_FG + "; }";
+        } else {
+            // Light mode already works, but define it for consistency
+            return "data:text/css," +
+                    ".date-picker-popup { -fx-background-color: " + LIGHT_CARD + "; }" +
+                    ".date-cell { -fx-background-color: " + LIGHT_CARD + "; -fx-text-fill: " + LIGHT_TEXT + "; }" +
+                    ".date-cell:hover { -fx-background-color: " + LIGHT_MUTED + "; }" +
+                    ".date-cell:focused { -fx-background-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY_FG + "; }" +
+                    ".date-cell.today { -fx-border-color: " + PRIMARY + "; }" +
+                    ".date-cell.selected { -fx-background-color: " + PRIMARY + "; -fx-text-fill: " + PRIMARY_FG + "; }";
+        }
+    }
 }

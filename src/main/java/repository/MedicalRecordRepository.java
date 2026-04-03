@@ -56,4 +56,22 @@ public class MedicalRecordRepository {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Updates an existing medical record by ID.
+     */
+    public void update(MedicalRecord record) {
+        String sql = "UPDATE medical_records SET blood_group = ?, medical_condition = ?, last_checkup = ? WHERE id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setString(1, record.getBloodGroup());
+            ps.setString(2, record.getMedicalCondition());
+            ps.setString(3, record.getLastCheckup());
+            ps.setInt(4, record.getId());
+            ps.executeUpdate();
+            ps.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }

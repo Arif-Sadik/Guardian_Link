@@ -13,13 +13,19 @@ import javafx.stage.Stage;
 import model.entity.SystemLog;
 import model.user.User;
 import service.SystemLogService;
+import service.DonationService;
+import service.ChildService;
+import service.UserService;
+import service.MedicalRecordService;
+import service.EducationRecordService;
+import model.entity.Donation;
+import model.entity.Child;
 import util.ThemeManager;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import javafx.stage.FileChooser;
-import service.UserService;
 
 /**
  * Support staff dashboard.
@@ -30,10 +36,16 @@ public class SupportController {
     private final Stage stage;
     private final User user;
     private BorderPane root;
+    private Scene scene;
     private VBox sidebar;
     private String activePage = "dashboard";
 
     private final SystemLogService systemLogService = new SystemLogService();
+    private final DonationService donationService = new DonationService();
+    private final ChildService childService = new ChildService();
+    private final UserService userService = new UserService();
+    private final MedicalRecordService medicalRecordService = new MedicalRecordService();
+    private final EducationRecordService educationRecordService = new EducationRecordService();
 
     // Theme constants
     private static final String PRIMARY = ThemeManager.PRIMARY;
@@ -77,7 +89,11 @@ public class SupportController {
         root.setLeft(buildSidebar());
         root.setCenter(buildDashboardPage());
         root.setStyle("-fx-background-color: " + BG() + ";");
-        Scene scene = new Scene(root, 1280, 800);
+        scene = new Scene(root, 1280, 800);
+        
+        // Apply dark mode styles for DatePicker visibility
+        applyDarkModeStylesheet(scene);
+        
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 Support Dashboard");
         stage.show();
@@ -85,11 +101,19 @@ public class SupportController {
 
     private void refreshTheme() {
         root.setStyle("-fx-background-color: " + BG() + ";");
+        
+        // Manage stylesheets based on theme
+        if (scene != null) {
+            applyDarkModeStylesheet(scene);
+        }
+        
         root.setTop(buildHeader());
         root.setLeft(buildSidebar());
         switch (activePage) {
             case "dashboard" -> root.setCenter(buildDashboardPage());
             case "alerts" -> root.setCenter(buildAlertsPage());
+            case "donors" -> root.setCenter(buildDonorInquiriesPage());
+            case "caregivers" -> root.setCenter(buildCaregiverSupportPage());
             case "reports" -> root.setCenter(buildReportsPage());
         }
     }
@@ -405,7 +429,9 @@ public class SupportController {
         navItems.setPadding(new Insets(0, 8, 0, 8));
         navItems.getChildren().addAll(
                 sidebarBtn("Dashboard", "dashboard"),
-                sidebarBtn("Alerts", "alerts"),
+                sidebarBtn("System Alerts", "alerts"),
+                sidebarBtn("Donor Inquiries", "donors"),
+                sidebarBtn("Caregiver Support", "caregivers"),
                 sidebarBtn("Incident Reports", "reports"));
         sidebar.getChildren().add(navItems);
 
@@ -471,6 +497,8 @@ public class SupportController {
             switch (pageId) {
                 case "dashboard" -> root.setCenter(buildDashboardPage());
                 case "alerts" -> root.setCenter(buildAlertsPage());
+                case "donors" -> root.setCenter(buildDonorInquiriesPage());
+                case "caregivers" -> root.setCenter(buildCaregiverSupportPage());
                 case "reports" -> root.setCenter(buildReportsPage());
             }
         });
@@ -499,8 +527,12 @@ public class SupportController {
     private String getPageId(String text) {
         if (text.contains("Dashboard"))
             return "dashboard";
-        if (text.contains("Alerts"))
+        if (text.contains("Alert"))
             return "alerts";
+        if (text.contains("Donor"))
+            return "donors";
+        if (text.contains("Caregiver"))
+            return "caregivers";
         if (text.contains("Incident") || text.contains("Reports"))
             return "reports";
         return "";
@@ -658,87 +690,92 @@ public class SupportController {
         return wrapScroll(page);
     }
 
-    // ═══════════ ALERTS PAGE ═══════════
+    // ═══════════ SYSTEM ALERTS PAGE (FEATURE 5 - ENHANCED) ═══════════
     private ScrollPane buildAlertsPage() {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
-        Label title = new Label("System Alerts");
+        Label title = new Label("System Monitoring & Alerts");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
-        Label sub = new Label("Monitor and manage system alerts");
+        Label sub = new Label("Monitor system health, errors, and suspicious activities");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        List<SystemLog> allLogs = systemLogService.getRecent(30);
+        List<SystemLog> allLogs = systemLogService.getRecent(50);
+
+        // Alert categories
+        long errorCount = allLogs.stream()
+                .filter(l -> l.getEventType() != null && l.getEventType().contains("Error"))
+                .count();
+        long warningCount = allLogs.stream()
+                .filter(l -> l.getEventType() != null && l.getEventType().contains("Warning"))
+                .count();
+        long deleteCount = allLogs.stream()
+                .filter(l -> l.getEventType() != null && l.getEventType().contains("Delete"))
+                .count();
 
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Entries", String.valueOf(allLogs.size()), "Showing recent", MUTED_FG()),
-                statCard("System Logs", String.valueOf(systemLogService.getCount()), "All time", SECONDARY));
+                statCard("Errors", String.valueOf(errorCount), "Critical issues", DESTRUCTIVE),
+                statCard("Warnings", String.valueOf(warningCount), "Potential issues", WARNING),
+                statCard("Deletions", String.valueOf(deleteCount), "Delete operations", DESTRUCTIVE));
 
-        VBox alertsList = new VBox(12);
+        // Alert feed
+        VBox alertsFeed = new VBox(12);
         if (allLogs.isEmpty()) {
-            Label noAlerts = new Label("No alerts at this time.");
-            noAlerts.setTextFill(Color.web(MUTED_FG()));
-            noAlerts.setPadding(new Insets(16));
-            alertsList.getChildren().add(noAlerts);
+            Label noAlerts = new Label("No system alerts at this time. Everything is working smoothly!");
+            noAlerts.setFont(Font.font("Segoe UI", 13));
+            noAlerts.setTextFill(Color.web(SECONDARY));
+            noAlerts.setPadding(new Insets(24));
+            alertsFeed.getChildren().add(noAlerts);
         } else {
             for (SystemLog log : allLogs) {
                 String eventType = log.getEventType() != null ? log.getEventType() : "Info";
                 boolean isError = eventType.contains("Error") || eventType.contains("Delete");
                 boolean isWarning = eventType.contains("Warning");
-                String borderC = isError ? DESTRUCTIVE : BORDER();
+                String borderC = isError ? DESTRUCTIVE : isWarning ? WARNING : BORDER();
                 String badgeColor = isError ? DESTRUCTIVE : isWarning ? WARNING : INFO;
 
                 VBox card = new VBox(8);
                 card.setPadding(new Insets(12));
                 card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
-                        + "; -fx-border-radius: 8; -fx-background-radius: 8;");
+                        + "; -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
 
                 HBox top = new HBox(12);
                 top.setAlignment(Pos.CENTER_LEFT);
 
-                Label typeBadge = new Label(eventType);
+                Label typeBadge = new Label(isError ? "🚨 " + eventType : isWarning ? "⚠️ " + eventType : "ℹ️ " + eventType);
                 typeBadge.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
                 typeBadge.setStyle("-fx-background-color: " + badgeColor + "1A; -fx-text-fill: " + badgeColor
                         + "; -fx-background-radius: 4; -fx-padding: 2 8;");
 
-                Label desc = new Label(log.getDescription() != null ? log.getDescription() : "");
-                desc.setFont(Font.font("Segoe UI", 13));
+                Label desc = new Label(log.getDescription() != null ? log.getDescription() : "No description");
+                desc.setFont(Font.font("Segoe UI", 12));
                 desc.setTextFill(Color.web(TEXT()));
                 desc.setWrapText(true);
                 HBox.setHgrow(desc, Priority.ALWAYS);
 
-                Label tm = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
-                tm.setFont(Font.font("Segoe UI", 11));
-                tm.setTextFill(Color.web(MUTED_FG()));
-
-                top.getChildren().addAll(typeBadge, desc, tm);
+                top.getChildren().addAll(typeBadge, desc);
 
                 HBox bottom = new HBox(12);
-                Label actor = new Label("By: " + (log.getActor() != null ? log.getActor() : "System"));
+                Label actor = new Label("🔑 " + (log.getActor() != null ? log.getActor() : "System"));
                 actor.setFont(Font.font("Segoe UI", 11));
                 actor.setTextFill(Color.web(MUTED_FG()));
 
-                Button resolveBtn = new Button("Resolve");
-                resolveBtn.setStyle("-fx-background-color: " + SECONDARY
-                        + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 4 12; -fx-cursor: hand; -fx-font-size: 11px;");
-                resolveBtn.setOnAction(e -> {
-                    systemLogService.save(new SystemLog("Resolution",
-                            "Resolved: " + log.getDescription(), user.getUsername(),
-                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-                    showAlert("Resolved", "Alert has been marked as resolved.");
-                    root.setCenter(buildAlertsPage());
-                });
+                Label time = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
+                time.setFont(Font.font("Segoe UI", 11));
+                time.setTextFill(Color.web(MUTED_FG()));
 
-                bottom.getChildren().addAll(actor, resolveBtn);
+                bottom.getChildren().addAll(actor, new Region(), time);
+                HBox.setHgrow(bottom.getChildren().get(1), Priority.ALWAYS);
+
                 card.getChildren().addAll(top, bottom);
-                alertsList.getChildren().add(card);
+                alertsFeed.getChildren().add(card);
             }
         }
 
-        page.getChildren().addAll(new VBox(4, title, sub), stats, alertsList);
+        page.getChildren().addAll(new VBox(4, title, sub), stats, alertsFeed);
         return wrapScroll(page);
     }
 
@@ -920,5 +957,424 @@ public class SupportController {
         alert.setHeaderText(null);
         alert.setContentText(msg);
         alert.showAndWait();
+    }
+
+    // ═══════════ DONOR INQUIRIES PAGE (FEATURE 3) ═══════════
+    private ScrollPane buildDonorInquiriesPage() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Label title = new Label("Donor Inquiries");
+        title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
+        Label sub = new Label("Assist donors with inquiries and track donation history");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
+
+        // Donor search
+        HBox searchBox = new HBox(8);
+        searchBox.setAlignment(Pos.CENTER_LEFT);
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search donor by username or ID...");
+        searchField.setPrefWidth(300);
+
+        Button searchBtn = new Button("🔍 Search");
+        searchBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 4; -fx-cursor: hand;");
+
+        searchBox.getChildren().addAll(searchField, searchBtn);
+
+        // Results area
+        VBox resultsCard = new VBox(12);
+        resultsCard.setPadding(new Insets(16));
+        resultsCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Label resultTitle = new Label("Donor Information");
+        resultTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 16));
+        resultTitle.setTextFill(Color.web(TEXT()));
+
+        ScrollPane donorDetails = new ScrollPane();
+        donorDetails.setPrefHeight(300);
+        donorDetails.setStyle("-fx-background-color: " + BG() + ";");
+
+        searchBtn.setOnAction(e -> {
+            String search = searchField.getText().trim();
+            if (search.isEmpty()) {
+                donorDetails.setContent(new Label("Please enter a donor username or ID."));
+                return;
+            }
+
+            List<model.user.Donor> donors = userService.getAllUsers().stream()
+                    .filter(u -> u instanceof model.user.Donor)
+                    .map(u -> (model.user.Donor) u)
+                    .filter(d -> d.getUsername().toLowerCase().contains(search.toLowerCase())
+                            || String.valueOf(d.getId()).equals(search))
+                    .toList();
+
+            if (donors.isEmpty()) {
+                donorDetails.setContent(new Label("No donors found matching: " + search));
+                return;
+            }
+
+            VBox donorList = new VBox(12);
+            for (model.user.Donor donor : donors) {
+                VBox donorCard = new VBox(8);
+                donorCard.setPadding(new Insets(12));
+                donorCard.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-color: " + BORDER()
+                        + "; -fx-border-radius: 4; -fx-background-radius: 4;");
+
+                Label dName = new Label("👤 " + donor.getUsername());
+                dName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+                dName.setTextFill(Color.web(TEXT()));
+
+                Label dEmail = new Label("Email: " + (donor.getEmail() != null ? donor.getEmail() : "Not set"));
+                dEmail.setFont(Font.font("Segoe UI", 12));
+                dEmail.setTextFill(Color.web(MUTED_FG()));
+
+                Label dPhone = new Label("Phone: " + (donor.getPhoneNumber() != null ? donor.getPhoneNumber() : "Not set"));
+                dPhone.setFont(Font.font("Segoe UI", 12));
+                dPhone.setTextFill(Color.web(MUTED_FG()));
+
+                // Donation stats
+                List<Donation> donations = donationService.getByDonorId(donor.getId());
+                double totalDonated = donationService.getTotalByDonorId(donor.getId());
+                int childrenSupported = donationService.countChildrenByDonorId(donor.getId());
+
+                HBox stats = new HBox(16);
+                stats.setPadding(new Insets(8, 0, 0, 0));
+                Label stat1 = new Label("Donations: " + donations.size());
+                stat1.setFont(Font.font("Segoe UI", 12));
+                stat1.setTextFill(Color.web(PRIMARY));
+                Label stat2 = new Label("Total: $" + String.format("%.2f", totalDonated));
+                stat2.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                stat2.setTextFill(Color.web(SECONDARY));
+                Label stat3 = new Label("Children: " + childrenSupported);
+                stat3.setFont(Font.font("Segoe UI", 12));
+                stat3.setTextFill(Color.web(PRIMARY));
+                stats.getChildren().addAll(stat1, stat2, stat3);
+
+                // View donations button
+                Button viewDonationsBtn = new Button("View Donation History");
+                viewDonationsBtn.setStyle("-fx-background-color: " + INFO
+                        + "; -fx-text-fill: white; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 11px;");
+                viewDonationsBtn.setOnAction(ev -> showDonationHistory(donor));
+
+                donorCard.getChildren().addAll(dName, dEmail, dPhone, stats, viewDonationsBtn);
+                donorList.getChildren().add(donorCard);
+            }
+            donorDetails.setContent(donorList);
+        });
+
+        resultsCard.getChildren().addAll(resultTitle, donorDetails);
+        page.getChildren().addAll(new VBox(4, title, sub), searchBox, resultsCard);
+        return wrapScroll(page);
+    }
+
+    private void showDonationHistory(model.user.Donor donor) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Donation History - " + donor.getUsername());
+        dialog.setHeaderText("All donations from this donor");
+
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(16));
+
+        List<Donation> donations = donationService.getByDonorId(donor.getId());
+
+        if (donations.isEmpty()) {
+            content.getChildren().add(new Label("No donations from this donor yet."));
+        } else {
+            double totalAmount = 0;
+            for (Donation d : donations) {
+                Child child = childService.getChildById(d.getChildId());
+                String childName = child != null ? child.getName() : "Unknown (ID: " + d.getChildId() + ")";
+
+                VBox donationItem = new VBox(4);
+                donationItem.setPadding(new Insets(8));
+                donationItem.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-radius: 4; -fx-background-radius: 4;");
+
+                Label cName = new Label("Child: " + childName);
+                cName.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 12));
+                cName.setTextFill(Color.web(TEXT()));
+
+                Label amount = new Label("Amount: $" + String.format("%.2f", d.getAmount()));
+                amount.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+                amount.setTextFill(Color.web(SECONDARY));
+
+                Label purpose = new Label("Purpose: " + (d.getPurpose() != null ? d.getPurpose() : "General"));
+                purpose.setFont(Font.font("Segoe UI", 11));
+                purpose.setTextFill(Color.web(MUTED_FG()));
+
+                Label date = new Label("Date: " + (d.getDate() != null ? d.getDate() : "N/A"));
+                date.setFont(Font.font("Segoe UI", 11));
+                date.setTextFill(Color.web(MUTED_FG()));
+
+                donationItem.getChildren().addAll(cName, amount, purpose, date);
+                content.getChildren().add(donationItem);
+
+                totalAmount += d.getAmount();
+            }
+
+            Separator sep = new Separator();
+            Label totalLabel = new Label("Total Donated: $" + String.format("%.2f", totalAmount));
+            totalLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+            totalLabel.setTextFill(Color.web(PRIMARY));
+
+            content.getChildren().addAll(sep, totalLabel);
+        }
+
+        ScrollPane sp = new ScrollPane(content);
+        sp.setStyle("-fx-background-color: " + BG() + ";");
+        dialog.getDialogPane().setContent(sp);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+    }
+
+    // ═══════════ CAREGIVER SUPPORT PAGE (FEATURE 4) ═══════════
+    private ScrollPane buildCaregiverSupportPage() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Label title = new Label("Caregiver Support");
+        title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
+        Label sub = new Label("View child assignments and record submission status");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
+
+        // Caregiver search
+        HBox searchBox = new HBox(8);
+        searchBox.setAlignment(Pos.CENTER_LEFT);
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search caregiver by username...");
+        searchField.setPrefWidth(300);
+
+        Button searchBtn = new Button("🔍 Search");
+        searchBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 4; -fx-cursor: hand;");
+
+        searchBox.getChildren().addAll(searchField, searchBtn);
+
+        // Results area
+        ScrollPane resultsScroll = new ScrollPane();
+        resultsScroll.setPrefHeight(400);
+        resultsScroll.setStyle("-fx-background-color: " + BG() + ";");
+
+        searchBtn.setOnAction(e -> {
+            String search = searchField.getText().trim();
+            if (search.isEmpty()) {
+                resultsScroll.setContent(new Label("Please enter a caregiver username."));
+                return;
+            }
+
+            List<model.user.Caregiver> caregivers = userService.getAllUsers().stream()
+                    .filter(u -> u instanceof model.user.Caregiver)
+                    .map(u -> (model.user.Caregiver) u)
+                    .filter(c -> c.getUsername().toLowerCase().contains(search.toLowerCase()))
+                    .toList();
+
+            if (caregivers.isEmpty()) {
+                resultsScroll.setContent(new Label("No caregivers found matching: " + search));
+                return;
+            }
+
+            VBox caregiverList = new VBox(16);
+            for (model.user.Caregiver caregiver : caregivers) {
+                VBox caregiverCard = new VBox(12);
+                caregiverCard.setPadding(new Insets(16));
+                caregiverCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                        + "; -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
+
+                Label cName = new Label("👤 " + caregiver.getUsername());
+                cName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+                cName.setTextFill(Color.web(TEXT()));
+
+                // Get assigned children
+                List<Child> assignedChildren = childService.getAllChildren().stream()
+                        .filter(c -> c.getAssignedCaregiverId() != null && c.getAssignedCaregiverId().equals(caregiver.getId()))
+                        .toList();
+
+                Label childCount = new Label("👶 Assigned Children: " + assignedChildren.size());
+                childCount.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+                childCount.setTextFill(Color.web(PRIMARY));
+
+                // Child list
+                VBox childrenList = new VBox(8);
+                if (assignedChildren.isEmpty()) {
+                    Label noChildren = new Label("No children assigned to this caregiver.");
+                    noChildren.setFont(Font.font("Segoe UI", 11));
+                    noChildren.setTextFill(Color.web(MUTED_FG()));
+                    childrenList.getChildren().add(noChildren);
+                } else {
+                    for (Child child : assignedChildren) {
+                        VBox childItem = new VBox(4);
+                        childItem.setPadding(new Insets(8));
+                        childItem.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-radius: 4; -fx-background-radius: 4;");
+
+                        Label childName = new Label("🏠 " + child.getName() + " (Age: " + child.getAge() + ")");
+                        childName.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 12));
+                        childName.setTextFill(Color.web(TEXT()));
+
+                        // Check record status
+                        boolean hasMedical = !medicalRecordService.getRecordsByChildId(child.getId()).isEmpty();
+                        boolean hasEducation = !educationRecordService.getRecordsByChildId(child.getId()).isEmpty();
+
+                        HBox recordStatus = new HBox(8);
+                        Label medicalStatus = new Label(hasMedical ? "✓ Medical" : "✗ Medical");
+                        medicalStatus.setFont(Font.font("Segoe UI", 11));
+                        medicalStatus.setTextFill(Color.web(hasMedical ? SECONDARY : DESTRUCTIVE));
+
+                        Label educationStatus = new Label(hasEducation ? "✓ Education" : "✗ Education");
+                        educationStatus.setFont(Font.font("Segoe UI", 11));
+                        educationStatus.setTextFill(Color.web(hasEducation ? SECONDARY : DESTRUCTIVE));
+
+                        recordStatus.getChildren().addAll(medicalStatus, educationStatus);
+
+                        childItem.getChildren().addAll(childName, recordStatus);
+                        childrenList.getChildren().add(childItem);
+                    }
+                }
+
+                caregiverCard.getChildren().addAll(cName, childCount, childrenList);
+                caregiverList.getChildren().add(caregiverCard);
+            }
+            resultsScroll.setContent(caregiverList);
+        });
+
+        page.getChildren().addAll(new VBox(4, title, sub), searchBox, resultsScroll);
+        return wrapScroll(page);
+    }
+
+    // ═══════════ SYSTEM ALERTS PAGE (FEATURE 5 - ENHANCED) ═══════════
+    private ScrollPane buildAlertsPageEnhanced() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Label title = new Label("System Monitoring & Alerts");
+        title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
+        Label sub = new Label("Monitor system health, errors, and suspicious activities");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
+
+        List<SystemLog> allLogs = systemLogService.getRecent(50);
+
+        // Alert categories
+        long errorCount = allLogs.stream()
+                .filter(l -> l.getEventType() != null && l.getEventType().contains("Error"))
+                .count();
+        long warningCount = allLogs.stream()
+                .filter(l -> l.getEventType() != null && l.getEventType().contains("Warning"))
+                .count();
+        long deleteCount = allLogs.stream()
+                .filter(l -> l.getEventType() != null && l.getEventType().contains("Delete"))
+                .count();
+
+        HBox stats = new HBox(16);
+        stats.getChildren().addAll(
+                statCard("Errors", String.valueOf(errorCount), "Critical issues", DESTRUCTIVE),
+                statCard("Warnings", String.valueOf(warningCount), "Potential issues", WARNING),
+                statCard("Deletions", String.valueOf(deleteCount), "Delete operations", DESTRUCTIVE));
+
+        // Alert feed
+        VBox alertsFeed = new VBox(12);
+        if (allLogs.isEmpty()) {
+            Label noAlerts = new Label("No system alerts at this time. Everything is working smoothly!");
+            noAlerts.setFont(Font.font("Segoe UI", 13));
+            noAlerts.setTextFill(Color.web(SECONDARY));
+            noAlerts.setPadding(new Insets(24));
+            alertsFeed.getChildren().add(noAlerts);
+        } else {
+            for (SystemLog log : allLogs) {
+                String eventType = log.getEventType() != null ? log.getEventType() : "Info";
+                boolean isError = eventType.contains("Error") || eventType.contains("Delete");
+                boolean isWarning = eventType.contains("Warning");
+                String borderC = isError ? DESTRUCTIVE : isWarning ? WARNING : BORDER();
+                String badgeColor = isError ? DESTRUCTIVE : isWarning ? WARNING : INFO;
+
+                VBox card = new VBox(8);
+                card.setPadding(new Insets(12));
+                card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
+                        + "; -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
+
+                HBox top = new HBox(12);
+                top.setAlignment(Pos.CENTER_LEFT);
+
+                Label typeBadge = new Label(isError ? "🚨 " + eventType : isWarning ? "⚠️ " + eventType : "ℹ️ " + eventType);
+                typeBadge.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+                typeBadge.setStyle("-fx-background-color: " + badgeColor + "1A; -fx-text-fill: " + badgeColor
+                        + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+
+                Label desc = new Label(log.getDescription() != null ? log.getDescription() : "No description");
+                desc.setFont(Font.font("Segoe UI", 12));
+                desc.setTextFill(Color.web(TEXT()));
+                desc.setWrapText(true);
+                HBox.setHgrow(desc, Priority.ALWAYS);
+
+                top.getChildren().addAll(typeBadge, desc);
+
+                HBox bottom = new HBox(12);
+                Label actor = new Label("🔑 " + (log.getActor() != null ? log.getActor() : "System"));
+                actor.setFont(Font.font("Segoe UI", 11));
+                actor.setTextFill(Color.web(MUTED_FG()));
+
+                Label time = new Label(log.getTimestamp() != null ? log.getTimestamp() : "");
+                time.setFont(Font.font("Segoe UI", 11));
+                time.setTextFill(Color.web(MUTED_FG()));
+
+                bottom.getChildren().addAll(actor, new Region(), time);
+                HBox.setHgrow(bottom.getChildren().get(1), Priority.ALWAYS);
+
+                card.getChildren().addAll(top, bottom);
+                alertsFeed.getChildren().add(card);
+            }
+        }
+
+        page.getChildren().addAll(new VBox(4, title, sub), stats, alertsFeed);
+        return wrapScroll(page);
+    }
+
+    private void applyDarkModeStylesheet(Scene scene) {
+        // Remove all existing stylesheets to prevent theme mixing
+        scene.getStylesheets().clear();
+        
+        // Only apply dark mode stylesheet if dark mode is enabled
+        if (!ThemeManager.isDarkMode()) {
+            return; // Light mode uses default JavaFX styling
+        }
+        
+        // Create comprehensive dark mode CSS for all controls
+        String darkModeCSS = ".text-input { -fx-text-fill: #e2e8f0; -fx-control-inner-background: #16213e; }"
+                + ".combo-box { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box .list-cell { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box-popup .list-view { -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-picker { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup { -fx-background-color: #16213e; }"
+                + ".date-picker-popup .button { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .button:hover { -fx-background-color: #1a3a52; }"
+                + ".date-picker-popup .label { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .spinner .text-field { -fx-control-inner-background: #0f3460; -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .text { -fx-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .button { -fx-text-fill: #e2e8f0; }"
+                + ".date-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; -fx-padding: 4px; }"
+                + ".date-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-cell:focused { -fx-background-color: #2563eb; -fx-text-fill: white; }"
+                + ".date-cell:today { -fx-border-color: #2563eb; -fx-border-width: 1; }"
+                + ".date-cell:selected { -fx-background-color: #2563eb; -fx-text-fill: white; }";
+        
+        // Add stylesheet to scene
+        try {
+            java.io.File tempFile = java.io.File.createTempFile("darkmode", ".css");
+            tempFile.deleteOnExit();
+            try (java.io.FileWriter writer = new java.io.FileWriter(tempFile)) {
+                writer.write(darkModeCSS);
+            }
+            scene.getStylesheets().add("file:///" + tempFile.getAbsolutePath().replace("\\", "/"));
+        } catch (java.io.IOException e) {
+            System.err.println("Failed to apply dark mode stylesheet: " + e.getMessage());
+        }
     }
 }

@@ -56,4 +56,22 @@ public class EducationRecordRepository {
             e.printStackTrace();
         }
     }
+
+    /**
+     * Updates an existing education record by ID.
+     */
+    public void update(EducationRecord record) {
+        String sql = "UPDATE education_records SET school_name = ?, grade = ?, attendance_percentage = ? WHERE id = ?";
+        try {
+            PreparedStatement ps = DBUtil.getConnection().prepareStatement(sql);
+            ps.setString(1, record.getSchoolName());
+            ps.setString(2, record.getGrade());
+            ps.setDouble(3, record.getAttendancePercentage());
+            ps.setInt(4, record.getId());
+            ps.executeUpdate();
+            ps.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }

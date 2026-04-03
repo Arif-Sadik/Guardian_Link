@@ -47,6 +47,7 @@ public class OrgAdminController {
     private final Stage stage;
     private final User user;
     private BorderPane root;
+    private Scene scene;
     private VBox sidebar;
     private String activePage = "dashboard";
     private boolean isShowingForm = false; // Flag to prevent auto-refresh during form display
@@ -120,7 +121,11 @@ public class OrgAdminController {
         refreshTimer.setCycleCount(Timeline.INDEFINITE);
         refreshTimer.play();
 
-        Scene scene = new Scene(root, 1280, 800);
+        scene = new Scene(root, 1280, 800);
+        
+        // Apply dark mode styles for DatePicker visibility
+        applyDarkModeStylesheet(scene);
+        
         stage.setScene(scene);
         stage.setTitle("GuardianLink \u2014 Organization Admin");
         stage.show();
@@ -128,6 +133,12 @@ public class OrgAdminController {
 
     private void refreshTheme() {
         root.setStyle("-fx-background-color: " + BG() + ";");
+        
+        // Manage stylesheets based on theme
+        if (scene != null) {
+            applyDarkModeStylesheet(scene);
+        }
+        
         root.setTop(buildHeader());
         root.setLeft(buildSidebar());
         // Refresh current page
@@ -1528,92 +1539,109 @@ public class OrgAdminController {
         saveBtn.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
         saveBtn.setOnAction(e -> {
-            String name = ((TextField) nameField.getChildren().get(1)).getText().trim();
-            if (name.isEmpty()) {
-                showAlert("Warning", "Child name is required.");
-                return;
-            }
-            
-            // Track previous caregiver for notifications
-            Integer previousCaregiverId = child.getAssignedCaregiverId();
-            String selectedCaregiver = caregiverBox.getValue();
-            Integer newCaregiverId = null;
-            
-            if (!selectedCaregiver.equals("-- No Assignment --")) {
-                newCaregiverId = caregiverMap.get(selectedCaregiver);
-            }
-            
-            // Update child details
-            child.setName(name);
             try {
-                child.setAge(Integer.parseInt(((TextField) ageField.getChildren().get(1)).getText().trim()));
-            } catch (NumberFormatException ex) {
-                /* keep old value */ }
-            child.setGender(((TextField) genderField.getChildren().get(1)).getText().trim());
-            child.setDateOfBirth(((TextField) dobField.getChildren().get(1)).getText().trim());
-            child.setOrganization(((TextField) orgField.getChildren().get(1)).getText().trim());
-            child.setStatus(((ComboBox<String>) statusField.getChildren().get(1)).getValue());
-            child.setPhotoPath(newPhotoPath[0]);
-            
-            // Handle caregiver changes
-            if (previousCaregiverId != null && newCaregiverId == null) {
-                // Caregiver was removed
-                childService.removeCaregiverFromChild(child.getId(), user.getUsername());
-                child.setAssignedCaregiverId(null);
-            } else if (newCaregiverId != null && (previousCaregiverId == null || !previousCaregiverId.equals(newCaregiverId))) {
-                // Caregiver was assigned or changed
-                child.setAssignedCaregiverId(newCaregiverId);
-                childService.assignCaregiverToChild(child.getId(), newCaregiverId, user.getUsername());
-                systemLogService.save(new SystemLog("Caregiver Assignment",
-                        "Assigned child " + name + " to caregiver ID " + newCaregiverId, user.getUsername(),
-                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            } else {
-                child.setAssignedCaregiverId(newCaregiverId);
-            }
-            
-            // Handle sponsor changes
-            String selectedSponsor = sponsorBox.getValue();
-            if (!selectedSponsor.equals("-- No Assignment --")) {
-                child.setSponsorId(sponsorMap.get(selectedSponsor));
-            } else {
-                child.setSponsorId(null);
-            }
-            
-            childService.updateChild(child);
-            
-            // Save medical record
-            String bloodGroup = ((TextField) medicalBloodGroup.getChildren().get(1)).getText().trim();
-            String medCondition = ((TextField) medicalCondition.getChildren().get(1)).getText().trim();
-            String lastCheckup = ((TextField) medicalCheckup.getChildren().get(1)).getText().trim();
-            if (!bloodGroup.isEmpty() || !medCondition.isEmpty() || !lastCheckup.isEmpty()) {
-                java.util.List<MedicalRecord> existingMed = medicalRecordService.getRecordsByChildId(child.getId());
-                if (existingMed.isEmpty()) {
-                    medicalRecordService.addRecord(new MedicalRecord(child.getId(), bloodGroup, medCondition, lastCheckup));
+                String name = ((TextField) nameField.getChildren().get(1)).getText().trim();
+                if (name.isEmpty()) {
+                    showAlert("Warning", "Child name is required.");
+                    return;
                 }
-            }
-            
-            // Save education record
-            String schoolName = ((TextField) eduSchool.getChildren().get(1)).getText().trim();
-            String grade = ((TextField) eduGrade.getChildren().get(1)).getText().trim();
-            String attendanceStr = ((TextField) eduAttendance.getChildren().get(1)).getText().trim();
-            if (!schoolName.isEmpty() || !grade.isEmpty() || !attendanceStr.isEmpty()) {
-                double attendance = 0;
+                
+                // Track previous caregiver for notifications
+                Integer previousCaregiverId = child.getAssignedCaregiverId();
+                String selectedCaregiver = caregiverBox.getValue();
+                Integer newCaregiverId = null;
+                
+                if (!selectedCaregiver.equals("-- No Assignment --")) {
+                    newCaregiverId = caregiverMap.get(selectedCaregiver);
+                }
+                
+                // Update child details
+                child.setName(name);
                 try {
-                    attendance = Double.parseDouble(attendanceStr);
+                    child.setAge(Integer.parseInt(((TextField) ageField.getChildren().get(1)).getText().trim()));
                 } catch (NumberFormatException ex) {
-                    /* keep as 0 */ }
-                java.util.List<EducationRecord> existingEdu = educationRecordService.getRecordsByChildId(child.getId());
-                if (existingEdu.isEmpty()) {
-                    educationRecordService.addRecord(new EducationRecord(child.getId(), schoolName, grade, attendance));
+                    /* keep old value */ }
+                child.setGender(((TextField) genderField.getChildren().get(1)).getText().trim());
+                child.setDateOfBirth(((TextField) dobField.getChildren().get(1)).getText().trim());
+                child.setOrganization(((TextField) orgField.getChildren().get(1)).getText().trim());
+                child.setStatus(((ComboBox<String>) statusField.getChildren().get(1)).getValue());
+                child.setPhotoPath(newPhotoPath[0]);
+                
+                // Handle caregiver changes
+                if (previousCaregiverId != null && newCaregiverId == null) {
+                    // Caregiver was removed
+                    childService.removeCaregiverFromChild(child.getId(), user.getUsername());
+                    child.setAssignedCaregiverId(null);
+                } else if (newCaregiverId != null && (previousCaregiverId == null || !previousCaregiverId.equals(newCaregiverId))) {
+                    // Caregiver was assigned or changed
+                    child.setAssignedCaregiverId(newCaregiverId);
+                    childService.assignCaregiverToChild(child.getId(), newCaregiverId, user.getUsername());
+                    systemLogService.save(new SystemLog("Caregiver Assignment",
+                            "Assigned child " + name + " to caregiver ID " + newCaregiverId, user.getUsername(),
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                } else {
+                    child.setAssignedCaregiverId(newCaregiverId);
                 }
+                
+                // Handle sponsor changes
+                String selectedSponsor = sponsorBox.getValue();
+                if (!selectedSponsor.equals("-- No Assignment --")) {
+                    child.setSponsorId(sponsorMap.get(selectedSponsor));
+                } else {
+                    child.setSponsorId(null);
+                }
+                
+                childService.updateChild(child);
+                
+                // Save medical record
+                String bloodGroup = ((TextField) medicalBloodGroup.getChildren().get(1)).getText().trim();
+                String medCondition = ((TextField) medicalCondition.getChildren().get(1)).getText().trim();
+                String lastCheckup = ((TextField) medicalCheckup.getChildren().get(1)).getText().trim();
+                if (!bloodGroup.isEmpty() || !medCondition.isEmpty() || !lastCheckup.isEmpty()) {
+                    java.util.List<MedicalRecord> existingMed = medicalRecordService.getRecordsByChildId(child.getId());
+                    if (existingMed.isEmpty()) {
+                        medicalRecordService.addRecord(new MedicalRecord(child.getId(), bloodGroup, medCondition, lastCheckup));
+                    } else {
+                        MedicalRecord medRec = existingMed.get(0);
+                        medRec.setBloodGroup(bloodGroup);
+                        medRec.setMedicalCondition(medCondition);
+                        medRec.setLastCheckup(lastCheckup);
+                        medicalRecordService.updateRecord(medRec);
+                    }
+                }
+                
+                // Save education record
+                String schoolName = ((TextField) eduSchool.getChildren().get(1)).getText().trim();
+                String grade = ((TextField) eduGrade.getChildren().get(1)).getText().trim();
+                String attendanceStr = ((TextField) eduAttendance.getChildren().get(1)).getText().trim();
+                if (!schoolName.isEmpty() || !grade.isEmpty() || !attendanceStr.isEmpty()) {
+                    double attendance = 0;
+                    try {
+                        attendance = Math.min(100, Math.max(0, Double.parseDouble(attendanceStr))); // Clamp to 0-100
+                    } catch (NumberFormatException ex) {
+                        /* keep as 0 */ }
+                    java.util.List<EducationRecord> existingEdu = educationRecordService.getRecordsByChildId(child.getId());
+                    if (existingEdu.isEmpty()) {
+                        educationRecordService.addRecord(new EducationRecord(child.getId(), schoolName, grade, attendance));
+                    } else {
+                        EducationRecord eduRec = existingEdu.get(0);
+                        eduRec.setSchoolName(schoolName);
+                        eduRec.setGrade(grade);
+                        eduRec.setAttendancePercentage(attendance);
+                        educationRecordService.updateRecord(eduRec);
+                    }
+                }
+                systemLogService.save(new SystemLog("Data Update",
+                        "Updated child profile: " + child.getName(), user.getUsername(),
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                showAlert("Success", "Child profile updated successfully.");
+                selectedChild = child;
+                isShowingForm = false;
+                root.setCenter(buildChildrenPage());
+            } catch (Exception ex) {
+                showAlert("⚠ Error", "Error updating child: " + ex.getMessage());
+                ex.printStackTrace();
             }
-            systemLogService.save(new SystemLog("Data Update",
-                    "Updated child profile: " + child.getName(), user.getUsername(),
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            showAlert("Success", "Child profile updated successfully.");
-            selectedChild = child;
-            isShowingForm = false;
-            root.setCenter(buildChildrenPage());
         });
 
         card.getChildren().addAll(nameField, ageField, genderField, dobField, orgField, photoField, statusField,
@@ -2657,5 +2685,49 @@ public class OrgAdminController {
 
         page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);
+    }
+
+    private void applyDarkModeStylesheet(Scene scene) {
+        // Remove all existing stylesheets to prevent theme mixing
+        scene.getStylesheets().clear();
+        
+        // Only apply dark mode stylesheet if dark mode is enabled
+        if (!ThemeManager.isDarkMode()) {
+            return; // Light mode uses default JavaFX styling
+        }
+        
+        // Create comprehensive dark mode CSS for all controls
+        String darkModeCSS = ".text-input { -fx-text-fill: #e2e8f0; -fx-control-inner-background: #16213e; }"
+                + ".combo-box { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box .list-cell { -fx-text-fill: #e2e8f0; }"
+                + ".combo-box-popup .list-view { -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; }"
+                + ".combo-box-popup .list-view .list-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-picker { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup { -fx-background-color: #16213e; }"
+                + ".date-picker-popup .button { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .button:hover { -fx-background-color: #1a3a52; }"
+                + ".date-picker-popup .label { -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner { -fx-text-fill: #e2e8f0; -fx-background-color: #0f3460; }"
+                + ".date-picker-popup .spinner .text-field { -fx-control-inner-background: #0f3460; -fx-text-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .text { -fx-fill: #e2e8f0; }"
+                + ".date-picker-popup .spinner .button { -fx-text-fill: #e2e8f0; }"
+                + ".date-cell { -fx-text-fill: #e2e8f0; -fx-background-color: #16213e; -fx-padding: 4px; }"
+                + ".date-cell:hover { -fx-background-color: #0f3460; }"
+                + ".date-cell:focused { -fx-background-color: #2563eb; -fx-text-fill: white; }"
+                + ".date-cell:today { -fx-border-color: #2563eb; -fx-border-width: 1; }"
+                + ".date-cell:selected { -fx-background-color: #2563eb; -fx-text-fill: white; }";
+        
+        // Add stylesheet to scene
+        try {
+            java.io.File tempFile = java.io.File.createTempFile("darkmode", ".css");
+            tempFile.deleteOnExit();
+            try (java.io.FileWriter writer = new java.io.FileWriter(tempFile)) {
+                writer.write(darkModeCSS);
+            }
+            scene.getStylesheets().add("file:///" + tempFile.getAbsolutePath().replace("\\", "/"));
+        } catch (java.io.IOException e) {
+            System.err.println("Failed to apply dark mode stylesheet: " + e.getMessage());
+        }
     }
 }

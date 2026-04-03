@@ -8,9 +8,9 @@ public class EducationRecord {
 
     private int id;
     private int childId;
-    private final String schoolName;
-    private final String grade;
-    private final double attendancePercentage;
+    private String schoolName;
+    private String grade;
+    private double attendancePercentage;
 
     // ── Constructor ───────────────────────────────────────────
 
@@ -51,5 +51,17 @@ public class EducationRecord {
 
     public void setChildId(int childId) {
         this.childId = childId;
+    }
+
+    public void setSchoolName(String schoolName) {
+        this.schoolName = schoolName;
+    }
+
+    public void setGrade(String grade) {
+        this.grade = grade;
+    }
+
+    public void setAttendancePercentage(double attendancePercentage) {
+        this.attendancePercentage = attendancePercentage;
     }
 }

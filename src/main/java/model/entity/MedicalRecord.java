@@ -8,9 +8,9 @@ public class MedicalRecord {
 
     private int id;
     private int childId;
-    private final String bloodGroup;
-    private final String medicalCondition;
-    private final String lastCheckup;
+    private String bloodGroup;
+    private String medicalCondition;
+    private String lastCheckup;
 
     // ── Constructor ───────────────────────────────────────────
 
@@ -51,5 +51,17 @@ public class MedicalRecord {
 
     public void setChildId(int childId) {
         this.childId = childId;
+    }
+
+    public void setBloodGroup(String bloodGroup) {
+        this.bloodGroup = bloodGroup;
+    }
+
+    public void setMedicalCondition(String medicalCondition) {
+        this.medicalCondition = medicalCondition;
+    }
+
+    public void setLastCheckup(String lastCheckup) {
+        this.lastCheckup = lastCheckup;
     }
 }

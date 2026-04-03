@@ -34,9 +34,17 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+              <filters>
+                <filter>
+                  <artifact>org.openjfx:*</artifact>
+                  <excludes>
+                    <exclude>**/*</exclude>
+                  </excludes>
+                </filter>
+              </filters>
               <transformers>
                 <transformer>
-                  <mainClass>app.DbCheck</mainClass>
+                  <mainClass>app.Launcher</mainClass>
                 </transformer>
               </transformers>
             </configuration>
