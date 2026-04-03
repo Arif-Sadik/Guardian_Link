@@ -8,3 +8,9 @@ target/
 *.class
 *.log
 *.DS_Store
+# Database and local files
+*.db
+*.sqlite
+*.sqlite3
+# Build artifacts
+dependency-reduced-pom.xml
