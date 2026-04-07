@@ -39,7 +39,9 @@ import util.PasswordUtil;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -1029,13 +1031,16 @@ public class AdminController {
         Label title = new Label("Alerts & Notifications");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
-        Label sub = new Label("Monitor system alerts and emergencies");
+        Label sub = new Label("Monitor alerts relevant to your role");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        long criticalCount = activeAlerts.stream().filter(a -> a[0].equals("critical")).count();
-        long warningCount = activeAlerts.stream().filter(a -> a[0].equals("warning")).count();
-        long totalActive = activeAlerts.size();
+        // Get role-specific alerts
+        java.util.List<String[]> roleAlerts = getAlertsForRole();
+        
+        long criticalCount = roleAlerts.stream().filter(a -> a[0].equals("critical")).count();
+        long warningCount = roleAlerts.stream().filter(a -> a[0].equals("warning")).count();
+        long totalActive = roleAlerts.size();
 
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
@@ -1050,80 +1055,88 @@ public class AdminController {
         activeTitle.setTextFill(Color.web(TEXT()));
 
         VBox alertsList = new VBox(12);
-        for (String[] a : activeAlerts) {
-            String status = a[0];
-            String borderC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
-            String bgC = status.equals("critical") ? DESTRUCTIVE + "0D"
-                    : status.equals("warning") ? WARNING + "0D" : PRIMARY + "0D";
-            String iconC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
-            String iconChar = status.equals("critical") ? "\u2757" : status.equals("warning") ? "\u26A0" : "\u2139";
+        
+        if (roleAlerts.isEmpty()) {
+            Label noAlerts = new Label("No alerts for your role at this time.");
+            noAlerts.setFont(Font.font("Segoe UI", 13));
+            noAlerts.setTextFill(Color.web(MUTED_FG()));
+            alertsList.getChildren().add(noAlerts);
+        } else {
+            for (String[] a : roleAlerts) {
+                String status = a[0];
+                String borderC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
+                String bgC = status.equals("critical") ? DESTRUCTIVE + "0D"
+                        : status.equals("warning") ? WARNING + "0D" : PRIMARY + "0D";
+                String iconC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
+                String iconChar = status.equals("critical") ? "\u2757" : status.equals("warning") ? "\u26A0" : "\u2139";
 
-            VBox alertCard = new VBox(8);
-            alertCard.setPadding(new Insets(16));
-            alertCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
-                    + "; -fx-border-width: " + (status.equals("critical") ? "2" : "1")
-                    + "; -fx-background-radius: 8; -fx-border-radius: 8;");
+                VBox alertCard = new VBox(8);
+                alertCard.setPadding(new Insets(16));
+                alertCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
+                        + "; -fx-border-width: " + (status.equals("critical") ? "2" : "1")
+                        + "; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-            HBox top = new HBox(12);
-            top.setAlignment(Pos.TOP_LEFT);
-            StackPane iconBox = new StackPane();
-            iconBox.setPrefSize(40, 40);
-            iconBox.setStyle("-fx-background-color: " + bgC + "; -fx-background-radius: 4;");
-            Label icon = new Label(iconChar);
-            icon.setFont(Font.font("Segoe UI Emoji", 18));
-            icon.setTextFill(Color.web(iconC));
-            iconBox.getChildren().add(icon);
+                HBox top = new HBox(12);
+                top.setAlignment(Pos.TOP_LEFT);
+                StackPane iconBox = new StackPane();
+                iconBox.setPrefSize(40, 40);
+                iconBox.setStyle("-fx-background-color: " + bgC + "; -fx-background-radius: 4;");
+                Label icon = new Label(iconChar);
+                icon.setFont(Font.font("Segoe UI Emoji", 18));
+                icon.setTextFill(Color.web(iconC));
+                iconBox.getChildren().add(icon);
 
-            VBox info = new VBox(4);
-            HBox.setHgrow(info, Priority.ALWAYS);
-            Label aTitle = new Label(a[1]);
-            aTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
-            aTitle.setTextFill(Color.web(iconC));
+                VBox info = new VBox(4);
+                HBox.setHgrow(info, Priority.ALWAYS);
+                Label aTitle = new Label(a[1]);
+                aTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+                aTitle.setTextFill(Color.web(iconC));
 
-            Label aId = new Label(a[2]);
-            aId.setFont(Font.font("Segoe UI", 11));
-            aId.setTextFill(Color.web(MUTED_FG()));
-            Label aDesc = new Label(a[4]);
-            aDesc.setFont(Font.font("Segoe UI", 13));
-            aDesc.setTextFill(Color.web(TEXT()));
-            aDesc.setWrapText(true);
+                Label aId = new Label(a[2]);
+                aId.setFont(Font.font("Segoe UI", 11));
+                aId.setTextFill(Color.web(MUTED_FG()));
+                Label aDesc = new Label(a[4]);
+                aDesc.setFont(Font.font("Segoe UI", 13));
+                aDesc.setTextFill(Color.web(TEXT()));
+                aDesc.setWrapText(true);
 
-            info.getChildren().addAll(aTitle, aId, aDesc);
-            if (!a[5].isEmpty()) {
-                Label related = new Label("Related Child: " + a[5]);
-                related.setFont(Font.font("Consolas", 11));
-                related.setTextFill(Color.web(MUTED_FG()));
-                info.getChildren().add(related);
+                info.getChildren().addAll(aTitle, aId, aDesc);
+                if (!a[5].isEmpty()) {
+                    Label related = new Label("Related Child: " + a[5]);
+                    related.setFont(Font.font("Consolas", 11));
+                    related.setTextFill(Color.web(MUTED_FG()));
+                    info.getChildren().add(related);
+                }
+
+                HBox btns = new HBox(12);
+                btns.setPadding(new Insets(8, 0, 0, 0));
+                Button vd = new Button("View Details");
+                vd.setStyle("-fx-background-color: " + PRIMARY
+                        + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+                final String[] alertData = a;
+                vd.setOnAction(e -> root.setCenter(buildAlertDetailView(alertData)));
+
+                Button mr = new Button("Mark Resolved");
+                mr.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
+                        + "; -fx-border-color: " + SECONDARY
+                        + "; -fx-border-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+
+                mr.setOnAction(e -> {
+                    activeAlerts.remove(alertData);
+                    root.setCenter(buildAlertsPage());
+                });
+
+                btns.getChildren().addAll(vd, mr);
+                info.getChildren().add(btns);
+
+                Label time = new Label(a[3]);
+                time.setFont(Font.font("Segoe UI", 11));
+                time.setTextFill(Color.web(MUTED_FG()));
+
+                top.getChildren().addAll(iconBox, info, time);
+                alertCard.getChildren().add(top);
+                alertsList.getChildren().add(alertCard);
             }
-
-            HBox btns = new HBox(12);
-            btns.setPadding(new Insets(8, 0, 0, 0));
-            Button vd = new Button("View Details");
-            vd.setStyle("-fx-background-color: " + PRIMARY
-                    + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
-            final String[] alertData = a;
-            vd.setOnAction(e -> root.setCenter(buildAlertDetailView(alertData)));
-
-            Button mr = new Button("Mark Resolved");
-            mr.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
-                    + "; -fx-border-color: " + SECONDARY
-                    + "; -fx-border-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
-
-            mr.setOnAction(e -> {
-                activeAlerts.remove(alertData);
-                root.setCenter(buildAlertsPage());
-            });
-
-            btns.getChildren().addAll(vd, mr);
-            info.getChildren().add(btns);
-
-            Label time = new Label(a[3]);
-            time.setFont(Font.font("Segoe UI", 11));
-            time.setTextFill(Color.web(MUTED_FG()));
-
-            top.getChildren().addAll(iconBox, info, time);
-            alertCard.getChildren().add(top);
-            alertsList.getChildren().add(alertCard);
         }
 
         page.getChildren().addAll(new VBox(4, title, sub), stats, activeTitle, alertsList);
@@ -2423,7 +2436,9 @@ public class AdminController {
         TextField nameField = new TextField();
         nameField.setPromptText("Full Name");
         TextField ageField = new TextField();
-        ageField.setPromptText("Age");
+        ageField.setPromptText("Age (auto-filled from DOB)");
+        ageField.setEditable(false);  // Will be auto-filled from DOB
+        ageField.setStyle("-fx-opacity: 0.9;");  // Slight opacity to indicate it's auto-filled
         ComboBox<String> genderBox = new ComboBox<>();
         genderBox.getItems().addAll("Male", "Female");
         genderBox.setPromptText("Gender");
@@ -2446,6 +2461,28 @@ public class AdminController {
                 + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT()
                 + "; -fx-padding: 8 12; -fx-font-size: 13px;";
         dobPicker.setStyle(datePickerStyle);
+        
+        // Disable future dates in the date picker
+        dobPicker.setDayCellFactory(picker -> new javafx.scene.control.DateCell() {
+            @Override
+            public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                if (date != null && date.isAfter(LocalDate.now())) {
+                    setDisable(true);
+                    setStyle("-fx-background-color: #ffcccc;");
+                }
+            }
+        });
+        
+        // Add listener to auto-calculate age when DOB is selected
+        dobPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                int calculatedAge = calculateAge(newVal);
+                ageField.setText(String.valueOf(calculatedAge));
+            } else {
+                ageField.setText("");
+            }
+        });
         
         // Status dropdown
         ComboBox<String> statusBox = new ComboBox<>();
@@ -2508,16 +2545,27 @@ public class AdminController {
             
             String name = nameField.getText().trim();
             String ageText = ageField.getText().trim();
-            if (name.isEmpty() || ageText.isEmpty()) {
-                validationError.setText("⚠ Name and Age are required.");
+            if (name.isEmpty()) {
+                validationError.setText("⚠ Name is required.");
                 validationError.setVisible(true);
                 return;
             }
+            if (dobPicker.getValue() == null) {
+                validationError.setText("⚠ Date of Birth is required.");
+                validationError.setVisible(true);
+                return;
+            }
+            
             int age;
             try {
                 age = Integer.parseInt(ageText);
+                if (age < 0 || age > 18) {
+                    validationError.setText("⚠ Age must be between 0 and 18.");
+                    validationError.setVisible(true);
+                    return;
+                }
             } catch (NumberFormatException ex) {
-                validationError.setText("⚠ Age must be a number. " + ageText + " is not valid.");
+                validationError.setText("⚠ Age must be a valid number.");
                 validationError.setVisible(true);
                 return;
             }
@@ -2563,11 +2611,12 @@ public class AdminController {
             }
         });
             
+        // Reordered form fields: Name, DOB, Age, Gender, Organization, Status, Caregiver, Photo
         form.getChildren().addAll(
                 validationError,
-                formRow("Name", nameField), formRow("Age", ageField),
-                formRow("Gender", genderBox), formRow("Organization", orgBox),
-                formRow("Date of Birth", dobPicker), formRow("Status", statusBox),
+                formRow("Name", nameField), formRow("Date of Birth", dobPicker), 
+                formRow("Age", ageField), formRow("Gender", genderBox), 
+                formRow("Organization", orgBox), formRow("Status", statusBox),
                 formRow("Assigned Caregiver", caregiverBox), formRow("Profile Photo", photoBtn), saveBtn);
 
         page.getChildren().addAll(backBtn, title, form);
@@ -2608,11 +2657,48 @@ public class AdminController {
 
         TextField nameField = new TextField(child.getName());
         TextField ageField = new TextField(String.valueOf(child.getAge()));
+        
         ComboBox<String> genderBox = new ComboBox<>();
         genderBox.getItems().addAll("Male", "Female");
         genderBox.setValue(child.getGender());
         TextField orgField = new TextField(child.getOrganization() != null ? child.getOrganization() : "");
-        TextField dobField = new TextField(child.getDateOfBirth() != null ? child.getDateOfBirth() : "");
+        
+        // Use DatePicker instead of TextField for DOB
+        javafx.scene.control.DatePicker dobPicker = new javafx.scene.control.DatePicker();
+        if (child.getDateOfBirth() != null && !child.getDateOfBirth().isEmpty()) {
+            try {
+                dobPicker.setValue(LocalDate.parse(child.getDateOfBirth()));
+            } catch (Exception ex) {
+                // If parsing fails, leave it empty
+            }
+        }
+        dobPicker.setPromptText("Select Date of Birth");
+        dobPicker.setMaxWidth(Double.MAX_VALUE);
+        String datePickerStyle = "-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-text-fill: " + TEXT()
+                + "; -fx-padding: 8 12; -fx-font-size: 13px;";
+        dobPicker.setStyle(datePickerStyle);
+        
+        // Disable future dates in the date picker
+        dobPicker.setDayCellFactory(picker -> new javafx.scene.control.DateCell() {
+            @Override
+            public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                if (date != null && date.isAfter(LocalDate.now())) {
+                    setDisable(true);
+                    setStyle("-fx-background-color: #ffcccc;");
+                }
+            }
+        });
+        
+        // Add listener to auto-calculate age when DOB is selected
+        dobPicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+                int calculatedAge = calculateAge(newVal);
+                ageField.setText(String.valueOf(calculatedAge));
+            }
+        });
+        
         ComboBox<String> statusBox = new ComboBox<>();
         statusBox.getItems().addAll("Active", "Graduated", "Inactive");
         statusBox.setValue(child.getStatus() != null ? child.getStatus() : "Active");
@@ -2675,7 +2761,6 @@ public class AdminController {
         nameField.setStyle(fieldStyle);
         ageField.setStyle(fieldStyle);
         orgField.setStyle(fieldStyle);
-        dobField.setStyle(fieldStyle);
         caregiverBox.setStyle(fieldStyle);
 
         // ═══════════ MEDICAL RECORD SECTION ═══════════
@@ -2683,9 +2768,11 @@ public class AdminController {
         medicalTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
         medicalTitle.setTextFill(Color.web(TEXT()));
         
-        TextField medicalBloodGroup = new TextField();
-        medicalBloodGroup.setPromptText("Blood Group");
-        medicalBloodGroup.setStyle(fieldStyle);
+        ComboBox<String> medicalBloodGroup = new ComboBox<>();
+        medicalBloodGroup.getItems().addAll("O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-");
+        medicalBloodGroup.setPromptText("Select Blood Type");
+        medicalBloodGroup.setMaxWidth(Double.MAX_VALUE);
+        medicalBloodGroup.setStyle(comboStyle);
         TextField medicalCondition = new TextField();
         medicalCondition.setPromptText("Medical Condition");
         medicalCondition.setStyle(fieldStyle);
@@ -2697,7 +2784,9 @@ public class AdminController {
         java.util.List<MedicalRecord> medRecords = medicalRecordService.getRecordsByChildId(child.getId());
         if (!medRecords.isEmpty()) {
             MedicalRecord medRec = medRecords.get(0);
-            medicalBloodGroup.setText(medRec.getBloodGroup() != null ? medRec.getBloodGroup() : "");
+            if (medRec.getBloodGroup() != null && !medRec.getBloodGroup().isEmpty()) {
+                medicalBloodGroup.setValue(medRec.getBloodGroup());
+            }
             medicalCondition.setText(medRec.getMedicalCondition() != null ? medRec.getMedicalCondition() : "");
             medicalCheckup.setText(medRec.getLastCheckup() != null ? medRec.getLastCheckup() : "");
         }
@@ -2744,16 +2833,27 @@ public class AdminController {
                 
                 String name = nameField.getText().trim();
                 String ageText = ageField.getText().trim();
-                if (name.isEmpty() || ageText.isEmpty()) {
-                    validationError.setText("⚠ Name and Age are required.");
+                if (name.isEmpty()) {
+                    validationError.setText("⚠ Name is required.");
                     validationError.setVisible(true);
                     return;
                 }
+                if (dobPicker.getValue() == null) {
+                    validationError.setText("⚠ Date of Birth is required.");
+                    validationError.setVisible(true);
+                    return;
+                }
+                
                 int age;
                 try {
                     age = Integer.parseInt(ageText);
+                    if (age < 0 || age > 18) {
+                        validationError.setText("⚠ Age must be between 0 and 18.");
+                        validationError.setVisible(true);
+                        return;
+                    }
                 } catch (NumberFormatException ex) {
-                    validationError.setText("⚠ Age must be a number. " + ageText + " is not valid.");
+                    validationError.setText("⚠ Age must be a valid number.");
                     validationError.setVisible(true);
                     return;
                 }
@@ -2772,7 +2872,7 @@ public class AdminController {
                 child.setAge(age);
                 child.setGender(genderBox.getValue());
                 child.setOrganization(orgField.getText().trim());
-                child.setDateOfBirth(dobField.getText().trim());
+                child.setDateOfBirth(dobPicker.getValue() != null ? dobPicker.getValue().toString() : "");
                 child.setStatus(statusBox.getValue());
                 child.setPhotoPath(newPhotoPath[0]);
                 
@@ -2795,7 +2895,7 @@ public class AdminController {
                 childService.updateChild(child);
                 
                 // Save medical record
-                String bloodGroup = medicalBloodGroup.getText().trim();
+                String bloodGroup = medicalBloodGroup.getValue() != null ? medicalBloodGroup.getValue() : "";
                 String medCondition = medicalCondition.getText().trim();
                 String lastCheckup = medicalCheckup.getText().trim();
                 if (!bloodGroup.isEmpty() || !medCondition.isEmpty() || !lastCheckup.isEmpty()) {
@@ -2848,11 +2948,12 @@ public class AdminController {
             }
         });
 
+        // Reordered form fields: Name, DOB, Age, Gender, Organization, Status, Caregiver, Photo
         form.getChildren().addAll(
                 validationError,
-                formRow("Name", nameField), formRow("Age", ageField),
-                formRow("Gender", genderBox), formRow("Organization", orgField),
-                formRow("Date of Birth", dobField), formRow("Status", statusBox),
+                formRow("Name", nameField), formRow("Date of Birth", dobPicker),
+                formRow("Age", ageField), formRow("Gender", genderBox), 
+                formRow("Organization", orgField), formRow("Status", statusBox),
                 formRow("Assigned Caregiver", caregiverBox), formRow("Profile Photo", photoBtn), new Separator(),
                 medicalTitle, formRow("Blood Group", medicalBloodGroup), formRow("Medical Condition", medicalCondition),
                 formRow("Last Checkup", medicalCheckup), new Separator(),
@@ -2862,6 +2963,73 @@ public class AdminController {
 
         page.getChildren().addAll(backBtn, title, form);
         return wrapScroll(page);
+    }
+
+    /**
+     * Calculate age from LocalDate
+     */
+    private int calculateAge(LocalDate dateOfBirth) {
+        if (dateOfBirth == null) return 0;
+        return Period.between(dateOfBirth, LocalDate.now()).getYears();
+    }
+
+    /**
+     * Filter alerts based on the current user's role
+     */
+    private java.util.List<String[]> getAlertsForRole() {
+        java.util.List<String[]> roleSpecificAlerts = new java.util.ArrayList<>();
+        UserRole userRole = user.getRole();
+        
+        for (String[] alert : activeAlerts) {
+            String title = alert[1];
+            String description = alert[4];
+            
+            switch (userRole) {
+                case SYSTEM_ADMIN:
+                    // Admins see all alerts
+                    roleSpecificAlerts.add(alert);
+                    break;
+                    
+                case ORGANIZATION_ADMIN:
+                    // Organization admins see child-related, data update, and general alerts
+                    if (title.contains("Child") || title.contains("Profile") || 
+                        title.contains("attendance") || title.contains("Medical") ||
+                        title.contains("Expense") || title.contains("Education") ||
+                        description.contains("child") || description.contains("profile")) {
+                        roleSpecificAlerts.add(alert);
+                    }
+                    break;
+                    
+                case CAREGIVER:
+                    // Caregivers see alerts about children they might be assigned to
+                    if (title.contains("Child") || title.contains("Missed") || 
+                        title.contains("Medical") || title.contains("Attendance") ||
+                        title.contains("Appointment") || description.contains("child")) {
+                        roleSpecificAlerts.add(alert);
+                    }
+                    break;
+                    
+                case DONOR:
+                    // Donors see donation and sponsorship-related alerts
+                    if (title.contains("Donation") || title.contains("Donor") || 
+                        title.contains("Sponsorship") || title.contains("Wallet") ||
+                        description.contains("donation") || description.contains("sponsorship")) {
+                        roleSpecificAlerts.add(alert);
+                    }
+                    break;
+                    
+                case SUPPORT:
+                    // Support staff see incident and system alerts
+                    if (title.contains("Incident") || title.contains("System") || 
+                        title.contains("Error") || title.contains("hacker") ||
+                        description.contains("error") || description.contains("system")) {
+                        roleSpecificAlerts.add(alert);
+                    }
+                    break;
+            }
+        }
+        
+        return roleSpecificAlerts;
     }
 
     private HBox formRow(String label, Node field) {

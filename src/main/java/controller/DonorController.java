@@ -25,6 +25,7 @@ import util.ThemeManager;
 import javafx.stage.FileChooser;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import util.FAQs;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -442,6 +443,7 @@ public class DonorController {
                 sidebarBtn("Dashboard", "dashboard"),
                 sidebarBtn("Sponsorships", "sponsorship"),
                 sidebarBtn("Donations", "donations"),
+                sidebarBtn("Inquiries", "inquiries"),
                 sidebarBtn("Reports", "reports"));
         sidebar.getChildren().add(navItems);
 
@@ -521,6 +523,7 @@ public class DonorController {
                 case "dashboard" -> root.setCenter(buildDashboardPage());
                 case "sponsorship" -> root.setCenter(buildSponsorshipPage());
                 case "donations" -> root.setCenter(buildDonationsPage());
+                case "inquiries" -> root.setCenter(buildInquiriesPage());
                 case "reports" -> root.setCenter(buildReportsPage());
             }
         });
@@ -1100,21 +1103,20 @@ public class DonorController {
             String dateRange = drCombo.getValue();
             List<Donation> donations = filterDonationsByDateRange(donationService.getByDonorId(user.getId()), dateRange);
             String reportContent = generateReportContent(reportType, donations, dateRange);
-            showReportDialog(reportContent, reportType);
+            exportReportToTXT(reportContent, reportType);
             systemLogService.save(new SystemLog("Report", "Generated " + reportType + " (" + dateRange + ")", user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
         });
-        Button pdfBtn = new Button("Export to PDF");
-        pdfBtn.setStyle("-fx-background-color: " + MUTED()
-                + "; -fx-text-fill: #1a1a1a; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand; -fx-border-color: "
-                + BORDER() + "; -fx-border-width: 1; -fx-border-radius: 4;");
+        Button pdfBtn = new Button("📄 Export to PDF");
+        pdfBtn.setStyle("-fx-background-color: " + SECONDARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 16; -fx-font-size: 13px; -fx-cursor: hand;");
         pdfBtn.setOnAction(e -> {
             String reportType = rtCombo.getValue();
             String dateRange = drCombo.getValue();
             List<Donation> donations = filterDonationsByDateRange(donationService.getByDonorId(user.getId()), dateRange);
             String reportContent = generateReportContent(reportType, donations, dateRange);
-            exportReportToFile(reportContent, reportType);
-            systemLogService.save(new SystemLog("Export", "Exported " + reportType + " to file", user.getUsername(),
+            exportReportToPDF(reportContent, reportType);
+            systemLogService.save(new SystemLog("Export", "Exported " + reportType + " to PDF", user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
         });
         buttons.getChildren().addAll(genBtn, pdfBtn);
@@ -1578,6 +1580,146 @@ public class DonorController {
         return wrapScroll(page);
     }
 
+    // ═══════════ INQUIRIES PAGE ═══════════
+    private ScrollPane buildInquiriesPage() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+
+        Label title = new Label("Ask Us Anything");
+        title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
+        Label sub = new Label("Submit your inquiries and get support from our team");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
+
+        // Inquiry form
+        VBox formCard = new VBox(16);
+        formCard.setPadding(new Insets(20));
+        formCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+        Label formTitle = new Label("Submit Your Inquiry");
+        formTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+        formTitle.setTextFill(Color.web(TEXT()));
+
+        TextField subjectField = new TextField();
+        subjectField.setPromptText("Subject of your inquiry...");
+        subjectField.setStyle("-fx-control-inner-background: " + BG() + "; -fx-text-fill: " + TEXT()
+                + "; -fx-padding: 10; -fx-border-color: " + BORDER() + "; -fx-border-radius: 4;");
+
+        TextArea messageArea = new TextArea();
+        messageArea.setPromptText("Please describe your inquiry in detail...");
+        messageArea.setWrapText(true);
+        messageArea.setPrefRowCount(8);
+        messageArea.setStyle("-fx-control-inner-background: " + BG() + "; -fx-text-fill: " + TEXT()
+                + "; -fx-padding: 10; -fx-border-color: " + BORDER() + "; -fx-border-radius: 4;");
+
+        HBox tagBox = new HBox(8);
+        tagBox.setAlignment(Pos.CENTER_LEFT);
+        Label tagLabel = new Label("Category: ");
+        tagLabel.setFont(Font.font("Segoe UI", 12));
+        tagLabel.setTextFill(Color.web(TEXT()));
+
+        ComboBox<String> categoryBox = new ComboBox<>();
+        categoryBox.getItems().addAll("General", "Donations", "Sponsorship", "Account", "Technical", "Other");
+        categoryBox.setValue("General");
+        categoryBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-padding: 8 12;");
+
+        tagBox.getChildren().addAll(tagLabel, categoryBox);
+
+        Button submitBtn = new Button("Submit Inquiry");
+        submitBtn.setStyle("-fx-background-color: " + PRIMARY
+                + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-size: 13px; -fx-cursor: hand; -fx-font-weight: bold;");
+
+        Label successMsg = new Label();
+        successMsg.setFont(Font.font("Segoe UI", 12));
+        successMsg.setVisible(false);
+
+        submitBtn.setOnAction(e -> {
+            String subject = subjectField.getText().trim();
+            String message = messageArea.getText().trim();
+            String category = categoryBox.getValue();
+
+            if (subject.isEmpty() || message.isEmpty()) {
+                successMsg.setText("❌ Please fill in all fields");
+                successMsg.setTextFill(Color.web(DESTRUCTIVE));
+                successMsg.setVisible(true);
+                return;
+            }
+
+            // Log the inquiry
+            systemLogService.save(new SystemLog("Donor Inquiry",
+                    "[" + category + "] " + subject + " - " + message.substring(0, Math.min(50, message.length())),
+                    user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+
+            successMsg.setText("✓ Your inquiry has been submitted successfully! Our support team will respond within 24 hours.");
+            successMsg.setTextFill(Color.web(SECONDARY));
+            successMsg.setVisible(true);
+
+            // Clear form
+            subjectField.clear();
+            messageArea.clear();
+            categoryBox.setValue("General");
+
+            // Auto-hide success message after 4 seconds
+            javafx.animation.Timeline timeline = new javafx.animation.Timeline(
+                    new javafx.animation.KeyFrame(javafx.util.Duration.seconds(4), evt -> successMsg.setVisible(false))
+            );
+            timeline.play();
+        });
+
+        formCard.getChildren().addAll(formTitle, subjectField, messageArea, tagBox, submitBtn, successMsg);
+
+        // FAQ Section
+        Label faqTitle = new Label("Frequently Asked Questions");
+        faqTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 16));
+        faqTitle.setTextFill(Color.web(TEXT()));
+
+        VBox faqContainer = new VBox(12);
+        for (FAQs.FAQ faq : FAQs.DONOR_FAQS) {
+            VBox faqCard = new VBox(8);
+            faqCard.setPadding(new Insets(12));
+            faqCard.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-color: " + BORDER()
+                    + "; -fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6;");
+
+            Label faqQ = new Label("❓ " + faq.title);
+            faqQ.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+            faqQ.setTextFill(Color.web(PRIMARY));
+            faqQ.setWrapText(true);
+
+            Label faqA = new Label(faq.description);
+            faqA.setFont(Font.font("Segoe UI", 11));
+            faqA.setTextFill(Color.web(TEXT()));
+            faqA.setWrapText(true);
+
+            Label faqCat = new Label("📁 " + faq.category);
+            faqCat.setFont(Font.font("Segoe UI", 10));
+            faqCat.setTextFill(Color.web(MUTED_FG()));
+
+            Button sendFAQBtn = new Button("Send This as Question");
+            sendFAQBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
+                    + "; -fx-border-color: " + SECONDARY + "; -fx-border-radius: 3; -fx-padding: 4 8; -fx-cursor: hand; -fx-font-size: 10px;");
+            sendFAQBtn.setOnAction(ev -> {
+                subjectField.setText(faq.title);
+                messageArea.setText(faq.message);
+                categoryBox.setValue(faq.category);
+            });
+
+            faqCard.getChildren().addAll(faqQ, faqA, faqCat, sendFAQBtn);
+            faqContainer.getChildren().add(faqCard);
+        }
+
+        ScrollPane faqScroll = new ScrollPane(faqContainer);
+        faqScroll.setFitToWidth(true);
+        faqScroll.setPrefHeight(300);
+        faqScroll.setStyle("-fx-background-color: " + BG() + ";");
+
+        page.getChildren().addAll(new VBox(4, title, sub), formCard, new Separator(), faqTitle, faqScroll);
+        return wrapScroll(page);
+    }
+
     private void applyDarkModeStylesheet(Scene scene) {
         // Remove all existing stylesheets to prevent theme mixing
         scene.getStylesheets().clear();
@@ -1642,9 +1784,7 @@ public class DonorController {
 
     private String generateReportContent(String reportType, List<Donation> donations, String dateRange) {
         StringBuilder sb = new StringBuilder();
-        sb.append("════════════════════════════════════════════════════════\n");
-        sb.append("GUARDIANLINK DONOR REPORT\n");
-        sb.append("════════════════════════════════════════════════════════\n\n");
+        sb.append("GUARDIANLINK DONOR REPORT\n\n");
         
         sb.append("Report Type: ").append(reportType).append("\n");
         sb.append("Date Range: ").append(dateRange).append("\n");
@@ -1668,8 +1808,7 @@ public class DonorController {
 
     private String generateDonationSummary(List<Donation> donations) {
         StringBuilder sb = new StringBuilder();
-        sb.append("DONATION SUMMARY\n");
-        sb.append("════════════════════════════════════════════════════════\n\n");
+        sb.append("DONATION SUMMARY\n\n");
         
         double totalAmount = donations.stream().mapToDouble(Donation::getAmount).sum();
         double avgAmount = donations.isEmpty() ? 0 : totalAmount / donations.size();
@@ -1679,9 +1818,7 @@ public class DonorController {
         sb.append("Average Donation: ").append(String.format("৳%,.2f", avgAmount)).append("\n\n");
         
         sb.append("DONATION DETAILS\n");
-        sb.append("────────────────────────────────────────────────────────\n");
-        sb.append(String.format("%-12s %-20s %-15s %-20s\n", "Date", "Child", "Amount", "Purpose"));
-        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append(String.format("%-12s %-20s %-15s\n", "Date", "Child", "Amount"));
         
         for (Donation d : donations) {
             String childName = "General";
@@ -1691,11 +1828,10 @@ public class DonorController {
                     childName = child.getName();
                 }
             }
-            sb.append(String.format("%-12s %-20s %-15s %-20s\n", 
+            sb.append(String.format("%-12s %-20s %-15s\n", 
                 d.getDate().substring(0, 10),
                 childName.length() > 19 ? childName.substring(0, 19) : childName,
-                String.format("৳%,.2f", d.getAmount()),
-                d.getPurpose() != null ? d.getPurpose() : "General Welfare"));
+                String.format("৳%,.2f", d.getAmount())));
         }
         
         return sb.toString();
@@ -1703,8 +1839,7 @@ public class DonorController {
 
     private String generateImpactReport(List<Donation> donations) {
         StringBuilder sb = new StringBuilder();
-        sb.append("IMPACT REPORT\n");
-        sb.append("════════════════════════════════════════════════════════\n\n");
+        sb.append("IMPACT REPORT\n\n");
         
         double totalDonated = donations.stream().mapToDouble(Donation::getAmount).sum();
         List<Child> sponsoredChildren = childService.getChildrenBySponsor(user.getId());
@@ -1712,15 +1847,13 @@ public class DonorController {
         int educationRecords = sponsoredChildren.isEmpty() ? 0 : educationRecordService.getRecordsByChildId(sponsoredChildren.get(0).getId()).size();
         
         sb.append("IMPACT METRICS\n");
-        sb.append("────────────────────────────────────────────────────────\n");
         sb.append("Total Amount Donated: ").append(String.format("৳%,.2f", totalDonated)).append("\n");
         sb.append("Number of Donations: ").append(donations.size()).append("\n");
         sb.append("Children Sponsored: ").append(sponsoredChildren.size()).append("\n");
         sb.append("Medical Records Supported: ").append(medicalRecords).append("\n");
         sb.append("Education Records Supported: ").append(educationRecords).append("\n\n");
         
-        sb.append("SPONSORED CHILDREN\n");
-        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append("\nSPONSORED CHILDREN\n");
         if (sponsoredChildren.isEmpty()) {
             sb.append("No children currently sponsored.\n");
         } else {
@@ -1734,9 +1867,7 @@ public class DonorController {
 
     private String generateTaxReceipt(List<Donation> donations) {
         StringBuilder sb = new StringBuilder();
-        sb.append("════════════════════════════════════════════════════════\n");
-        sb.append("OFFICIAL TAX RECEIPT\n");
-        sb.append("════════════════════════════════════════════════════════\n\n");
+        sb.append("OFFICIAL TAX RECEIPT\n\n");
         
         sb.append("Donor Name: ").append(user.getUsername()).append("\n");
         sb.append("Tax ID: GDL-").append(user.getId()).append("\n");
@@ -1745,20 +1876,16 @@ public class DonorController {
         double totalAmount = donations.stream().mapToDouble(Donation::getAmount).sum();
         
         sb.append("DONATION RECEIPT\n");
-        sb.append("────────────────────────────────────────────────────────\n");
         sb.append("Total Charitable Donations: ").append(String.format("৳%,.2f", totalAmount)).append("\n");
         sb.append("Number of Donations: ").append(donations.size()).append("\n\n");
         
-        sb.append("TAX INFORMATION\n");
-        sb.append("────────────────────────────────────────────────────────\n");
+        sb.append("\nTAX INFORMATION\n");
         sb.append("Organization: GuardianLink NGO\n");
         sb.append("Registration: Approved for tax deductions\n");
         sb.append("Tax Deductible: Yes\n\n");
         
         sb.append("TRANSACTION HISTORY\n");
-        sb.append("────────────────────────────────────────────────────────\n");
         sb.append(String.format("%-12s %-20s %-15s\n", "Date", "Recipient", "Amount"));
-        sb.append("────────────────────────────────────────────────────────\n");
         
         for (Donation d : donations) {
             String childName = "General Fund";
@@ -1774,8 +1901,7 @@ public class DonorController {
                 String.format("৳%,.2f", d.getAmount())));
         }
         
-        sb.append("\n════════════════════════════════════════════════════════\n");
-        sb.append("This is an official receipt for tax purposes.\n");
+        sb.append("\nThis is an official receipt for tax purposes.\n");
         sb.append("════════════════════════════════════════════════════════\n");
         
         return sb.toString();
@@ -1826,9 +1952,9 @@ public class DonorController {
         reportStage.show();
     }
 
-    private void exportReportToFile(String reportContent, String reportType) {
+    private void exportReportToTXT(String reportContent, String reportType) {
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Export Report");
+        fileChooser.setTitle("Export Report as Text");
         fileChooser.setInitialFileName(reportType.replace(" ", "_") + "_" + LocalDate.now() + ".txt");
         fileChooser.getExtensionFilters().addAll(
             new FileChooser.ExtensionFilter("Text Files", "*.txt"),
@@ -1842,6 +1968,103 @@ public class DonorController {
                 showAlert("Success", "Report exported to:\n" + file.getAbsolutePath());
             } catch (java.io.IOException e) {
                 showAlert("Error", "Failed to export report: " + e.getMessage());
+            }
+        }
+    }
+
+    private void exportReportToPDF(String reportContent, String reportType) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Export Report as PDF");
+        fileChooser.setInitialFileName(reportType.replace(" ", "_") + "_" + LocalDate.now() + ".pdf");
+        fileChooser.getExtensionFilters().addAll(
+            new FileChooser.ExtensionFilter("PDF Files", "*.pdf"),
+            new FileChooser.ExtensionFilter("All Files", "*.*")
+        );
+        
+        java.io.File file = fileChooser.showSaveDialog(stage);
+        if (file != null) {
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(file)) {
+                StringBuilder pdf = new StringBuilder();
+                
+                // PDF Header
+                pdf.append("%PDF-1.4\n");
+                
+                // Content stream with proper text formatting
+                String[] lines = reportContent.split("\n");
+                StringBuilder content = new StringBuilder();
+                content.append("BT\n");
+                content.append("/F1 10 Tf\n");
+                content.append("50 750 Td\n");
+                
+                for (String line : lines) {
+                    String escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)");
+                    content.append("(").append(escaped).append(") Tj\n");
+                    content.append("0 -12 Td\n");
+                }
+                content.append("ET\n");
+                
+                String contentStr = content.toString();
+                
+                // Object 1: Catalog
+                pdf.append("1 0 obj\n");
+                pdf.append("<< /Type /Catalog /Pages 2 0 R >>\n");
+                pdf.append("endobj\n");
+                
+                // Object 2: Pages
+                pdf.append("2 0 obj\n");
+                pdf.append("<< /Type /Pages /Kids [3 0 R] /Count 1 >>\n");
+                pdf.append("endobj\n");
+                
+                // Object 3: Page
+                pdf.append("3 0 obj\n");
+                pdf.append("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources 5 0 R >>\n");
+                pdf.append("endobj\n");
+                
+                // Object 4: Content Stream
+                pdf.append("4 0 obj\n");
+                pdf.append("<< /Length ").append(contentStr.length()).append(" >>\n");
+                pdf.append("stream\n");
+                pdf.append(contentStr);
+                pdf.append("endstream\n");
+                pdf.append("endobj\n");
+                
+                // Object 5: Resources
+                pdf.append("5 0 obj\n");
+                pdf.append("<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>\n");
+                pdf.append("endobj\n");
+                
+                // Calculate xref offsets
+                String[] pdfObjects = pdf.toString().split("endobj\n");
+                int[] offsets = new int[6];
+                int currentOffset = 0;
+                for (int i = 0; i < 5; i++) {
+                    offsets[i] = currentOffset;
+                    currentOffset += pdfObjects[i].length() + 7; // +7 for "endobj\n"
+                }
+                
+                // xref table
+                pdf.append("xref\n");
+                pdf.append("0 6\n");
+                pdf.append("0000000000 65535 f \n");
+                for (int i = 1; i < 6; i++) {
+                    pdf.append(String.format("%010d 00000 n \n", offsets[i]));
+                }
+                
+                // Trailer
+                pdf.append("trailer\n");
+                pdf.append("<< /Size 6 /Root 1 0 R >>\n");
+                pdf.append("startxref\n");
+                pdf.append(currentOffset).append("\n");
+                pdf.append("%%EOF\n");
+                
+                // Write to file
+                byte[] pdfBytes = pdf.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                fos.write(pdfBytes);
+                fos.flush();
+                
+                showAlert("Success", "PDF Report exported to:\n" + file.getAbsolutePath());
+            } catch (java.io.IOException e) {
+                showAlert("Error", "Failed to export PDF: " + e.getMessage());
             }
         }
     }

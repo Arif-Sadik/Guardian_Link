@@ -967,7 +967,7 @@ public class SupportController {
         Label title = new Label("Donor Inquiries");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
-        Label sub = new Label("Assist donors with inquiries and track donation history");
+        Label sub = new Label("View all donors and assist with their inquiries");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
@@ -975,54 +975,60 @@ public class SupportController {
         HBox searchBox = new HBox(8);
         searchBox.setAlignment(Pos.CENTER_LEFT);
         TextField searchField = new TextField();
-        searchField.setPromptText("Search donor by username or ID...");
+        searchField.setPromptText("Search donor by username or ID (optional)...");
         searchField.setPrefWidth(300);
 
-        Button searchBtn = new Button("🔍 Search");
-        searchBtn.setStyle("-fx-background-color: " + PRIMARY
-                + "; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 4; -fx-cursor: hand;");
+        Button clearBtn = new Button("Clear");
+        clearBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
+                + "; -fx-border-color: " + SECONDARY
+                + "; -fx-border-radius: 4; -fx-padding: 8 16; -fx-cursor: hand;");
 
-        searchBox.getChildren().addAll(searchField, searchBtn);
+        searchBox.getChildren().addAll(searchField, clearBtn);
 
         // Results area
-        VBox resultsCard = new VBox(12);
-        resultsCard.setPadding(new Insets(16));
-        resultsCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
-                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
-
-        Label resultTitle = new Label("Donor Information");
-        resultTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 16));
-        resultTitle.setTextFill(Color.web(TEXT()));
-
         ScrollPane donorDetails = new ScrollPane();
-        donorDetails.setPrefHeight(300);
+        donorDetails.setPrefHeight(400);
+        donorDetails.setFitToWidth(true);
         donorDetails.setStyle("-fx-background-color: " + BG() + ";");
-
-        searchBtn.setOnAction(e -> {
-            String search = searchField.getText().trim();
-            if (search.isEmpty()) {
-                donorDetails.setContent(new Label("Please enter a donor username or ID."));
-                return;
-            }
-
+        
+        // Helper method to display donors
+        Runnable displayDonors = () -> {
+            String search = searchField.getText().trim().toLowerCase();
+            
             List<model.user.Donor> donors = userService.getAllUsers().stream()
                     .filter(u -> u instanceof model.user.Donor)
                     .map(u -> (model.user.Donor) u)
-                    .filter(d -> d.getUsername().toLowerCase().contains(search.toLowerCase())
-                            || String.valueOf(d.getId()).equals(search))
+                    .filter(d -> search.isEmpty() || d.getUsername().toLowerCase().contains(search)
+                            || String.valueOf(d.getId()).contains(search))
                     .toList();
 
-            if (donors.isEmpty()) {
-                donorDetails.setContent(new Label("No donors found matching: " + search));
+            if (!search.isEmpty() && donors.isEmpty()) {
+                VBox noResults = new VBox(12);
+                noResults.setPadding(new Insets(24));
+                noResults.setAlignment(Pos.CENTER);
+                Label noMsg = new Label("❌ No donors found matching: \"" + searchField.getText() + "\"");
+                noMsg.setFont(Font.font("Segoe UI", 13));
+                noMsg.setTextFill(Color.web(MUTED_FG()));
+                noResults.getChildren().add(noMsg);
+                donorDetails.setContent(noResults);
                 return;
             }
 
-            VBox donorList = new VBox(12);
+            // Use TilePane for 3-column layout
+            javafx.scene.layout.TilePane tilePane = new javafx.scene.layout.TilePane();
+            tilePane.setPrefColumns(3);
+            tilePane.setHgap(16);
+            tilePane.setVgap(16);
+            tilePane.setPadding(new Insets(8));
+            tilePane.setStyle("-fx-background-color: " + BG() + ";");
+            
             for (model.user.Donor donor : donors) {
                 VBox donorCard = new VBox(8);
+                donorCard.setPrefWidth(320);
+                donorCard.setMinHeight(240);
                 donorCard.setPadding(new Insets(12));
-                donorCard.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-color: " + BORDER()
-                        + "; -fx-border-radius: 4; -fx-background-radius: 4;");
+                donorCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                        + "; -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
 
                 Label dName = new Label("👤 " + donor.getUsername());
                 dName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
@@ -1054,20 +1060,45 @@ public class SupportController {
                 stat3.setTextFill(Color.web(PRIMARY));
                 stats.getChildren().addAll(stat1, stat2, stat3);
 
-                // View donations button
-                Button viewDonationsBtn = new Button("View Donation History");
+                // Buttons
+                HBox buttonBox = new HBox(8);
+                buttonBox.setPadding(new Insets(4, 0, 0, 0));
+                
+                Button viewDonationsBtn = new Button("💰 Donations");
                 viewDonationsBtn.setStyle("-fx-background-color: " + INFO
-                        + "; -fx-text-fill: white; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 11px;");
+                        + "; -fx-text-fill: white; -fx-padding: 4 10; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 10px;");
+                viewDonationsBtn.setMaxWidth(Double.MAX_VALUE);
                 viewDonationsBtn.setOnAction(ev -> showDonationHistory(donor));
+                
+                Button viewInquiriesBtn = new Button("❓ Inquiries");
+                viewInquiriesBtn.setStyle("-fx-background-color: " + SECONDARY
+                        + "; -fx-text-fill: white; -fx-padding: 4 10; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 10px;");
+                viewInquiriesBtn.setMaxWidth(Double.MAX_VALUE);
+                viewInquiriesBtn.setOnAction(ev -> showDonorInquiries(donor));
+                
+                HBox.setHgrow(viewDonationsBtn, Priority.ALWAYS);
+                HBox.setHgrow(viewInquiriesBtn, Priority.ALWAYS);
+                buttonBox.getChildren().addAll(viewDonationsBtn, viewInquiriesBtn);
 
-                donorCard.getChildren().addAll(dName, dEmail, dPhone, stats, viewDonationsBtn);
-                donorList.getChildren().add(donorCard);
+                donorCard.getChildren().addAll(dName, dEmail, dPhone, stats, buttonBox);
+                tilePane.getChildren().add(donorCard);
             }
-            donorDetails.setContent(donorList);
+            donorDetails.setContent(tilePane);
+        };
+        
+        // Search with text change listener
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> displayDonors.run());
+        
+        // Clear button  
+        clearBtn.setOnAction(e -> {
+            searchField.clear();
+            displayDonors.run();
         });
+        
+        // Display all donors on load
+        displayDonors.run();
 
-        resultsCard.getChildren().addAll(resultTitle, donorDetails);
-        page.getChildren().addAll(new VBox(4, title, sub), searchBox, resultsCard);
+        page.getChildren().addAll(new VBox(4, title, sub), searchBox, donorDetails);
         return wrapScroll(page);
     }
 
@@ -1130,15 +1161,96 @@ public class SupportController {
         dialog.showAndWait();
     }
 
+    private void showDonorInquiries(model.user.Donor donor) {
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Inquiry History - " + donor.getUsername());
+        dialog.setHeaderText("All inquiries submitted by this donor");
+
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(16));
+
+        // Get all donor inquiries from SystemLog
+        List<SystemLog> allLogs = systemLogService.getRecent(200);
+        List<SystemLog> donorInquiries = allLogs.stream()
+                .filter(log -> log.getEventType() != null && log.getEventType().equals("Donor Inquiry"))
+                .filter(log -> log.getActor() != null && log.getActor().equals(donor.getUsername()))
+                .toList();
+
+        if (donorInquiries.isEmpty()) {
+            Label noInquiries = new Label("No inquiries submitted by this donor yet.");
+            noInquiries.setFont(Font.font("Segoe UI", 12));
+            noInquiries.setTextFill(Color.web(MUTED_FG()));
+            content.getChildren().add(noInquiries);
+        } else {
+            // Reverse to show newest first
+            for (SystemLog log : donorInquiries.reversed()) {
+                VBox inquiryItem = new VBox(6);
+                inquiryItem.setPadding(new Insets(12));
+                inquiryItem.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-radius: 4; -fx-background-radius: 4;");
+
+                // Timestamp
+                Label timestamp = new Label("📅 " + (log.getTimestamp() != null ? log.getTimestamp() : "N/A"));
+                timestamp.setFont(Font.font("Segoe UI", 10));
+                timestamp.setTextFill(Color.web(MUTED_FG()));
+
+                // Description contains "[Category] Subject - Message"
+                String desc = log.getDescription() != null ? log.getDescription() : "";
+                
+                // Parse the category and message
+                String category = "General";
+                String subjectAndMsg = desc;
+                
+                if (desc.startsWith("[")) {
+                    int endBracket = desc.indexOf("]");
+                    if (endBracket > 0) {
+                        category = desc.substring(1, endBracket);
+                        subjectAndMsg = desc.substring(endBracket + 2); // Skip "] "
+                    }
+                }
+                
+                // Extract subject and message preview
+                String[] parts = subjectAndMsg.split(" - ", 2);
+                String subject = parts.length > 0 ? parts[0] : "No subject";
+                String messagePreview = parts.length > 1 ? parts[1] : "";
+
+                // Category badge
+                Label categoryLabel = new Label("📁 " + category);
+                categoryLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+                categoryLabel.setTextFill(Color.web(PRIMARY));
+
+                // Subject
+                Label subjectLabel = new Label(subject);
+                subjectLabel.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 12));
+                subjectLabel.setTextFill(Color.web(TEXT()));
+                subjectLabel.setWrapText(true);
+
+                // Message preview
+                Label messageLabel = new Label(messagePreview);
+                messageLabel.setFont(Font.font("Segoe UI", 11));
+                messageLabel.setTextFill(Color.web(TEXT()));
+                messageLabel.setWrapText(true);
+
+                inquiryItem.getChildren().addAll(timestamp, categoryLabel, subjectLabel, messageLabel);
+                content.getChildren().add(inquiryItem);
+            }
+        }
+
+        ScrollPane sp = new ScrollPane(content);
+        sp.setStyle("-fx-background-color: " + BG() + ";");
+        dialog.getDialogPane().setContent(sp);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.showAndWait();
+    }
+
     // ═══════════ CAREGIVER SUPPORT PAGE (FEATURE 4) ═══════════
     private ScrollPane buildCaregiverSupportPage() {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
-        Label title = new Label("Caregiver Support");
+        Label title = new Label("Caregiver Inquiries");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
-        Label sub = new Label("View child assignments and record submission status");
+        Label sub = new Label("View all caregivers and manage their inquiries");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
@@ -1146,41 +1258,56 @@ public class SupportController {
         HBox searchBox = new HBox(8);
         searchBox.setAlignment(Pos.CENTER_LEFT);
         TextField searchField = new TextField();
-        searchField.setPromptText("Search caregiver by username...");
+        searchField.setPromptText("Search caregiver by username (optional)...");
         searchField.setPrefWidth(300);
 
-        Button searchBtn = new Button("🔍 Search");
-        searchBtn.setStyle("-fx-background-color: " + PRIMARY
-                + "; -fx-text-fill: white; -fx-padding: 8 16; -fx-background-radius: 4; -fx-cursor: hand;");
+        Button clearBtn = new Button("Clear");
+        clearBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
+                + "; -fx-border-color: " + SECONDARY
+                + "; -fx-border-radius: 4; -fx-padding: 8 16; -fx-cursor: hand;");
 
-        searchBox.getChildren().addAll(searchField, searchBtn);
+        searchBox.getChildren().addAll(searchField, clearBtn);
 
         // Results area
         ScrollPane resultsScroll = new ScrollPane();
         resultsScroll.setPrefHeight(400);
+        resultsScroll.setFitToWidth(true);
         resultsScroll.setStyle("-fx-background-color: " + BG() + ";");
-
-        searchBtn.setOnAction(e -> {
-            String search = searchField.getText().trim();
-            if (search.isEmpty()) {
-                resultsScroll.setContent(new Label("Please enter a caregiver username."));
-                return;
-            }
-
+        
+        // Helper method to display caregivers
+        Runnable displayCaregivers = () -> {
+            String search = searchField.getText().trim().toLowerCase();
+            
             List<model.user.Caregiver> caregivers = userService.getAllUsers().stream()
                     .filter(u -> u instanceof model.user.Caregiver)
                     .map(u -> (model.user.Caregiver) u)
-                    .filter(c -> c.getUsername().toLowerCase().contains(search.toLowerCase()))
+                    .filter(c -> search.isEmpty() || c.getUsername().toLowerCase().contains(search))
                     .toList();
 
-            if (caregivers.isEmpty()) {
-                resultsScroll.setContent(new Label("No caregivers found matching: " + search));
+            if (!search.isEmpty() && caregivers.isEmpty()) {
+                VBox noResults = new VBox(12);
+                noResults.setPadding(new Insets(24));
+                noResults.setAlignment(Pos.CENTER);
+                Label noMsg = new Label("❌ No caregivers found matching: \"" + searchField.getText() + "\"");
+                noMsg.setFont(Font.font("Segoe UI", 13));
+                noMsg.setTextFill(Color.web(MUTED_FG()));
+                noResults.getChildren().add(noMsg);
+                resultsScroll.setContent(noResults);
                 return;
             }
 
-            VBox caregiverList = new VBox(16);
+            // Use TilePane for 3-column layout
+            javafx.scene.layout.TilePane tilePane = new javafx.scene.layout.TilePane();
+            tilePane.setPrefColumns(3);
+            tilePane.setHgap(16);
+            tilePane.setVgap(16);
+            tilePane.setPadding(new Insets(8));
+            tilePane.setStyle("-fx-background-color: " + BG() + ";");
+            
             for (model.user.Caregiver caregiver : caregivers) {
                 VBox caregiverCard = new VBox(12);
+                caregiverCard.setPrefWidth(320);
+                caregiverCard.setMinHeight(280);
                 caregiverCard.setPadding(new Insets(16));
                 caregiverCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                         + "; -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
@@ -1200,6 +1327,7 @@ public class SupportController {
 
                 // Child list
                 VBox childrenList = new VBox(8);
+                childrenList.setStyle("-fx-fill-height: true;");
                 if (assignedChildren.isEmpty()) {
                     Label noChildren = new Label("No children assigned to this caregiver.");
                     noChildren.setFont(Font.font("Segoe UI", 11));
@@ -1236,10 +1364,22 @@ public class SupportController {
                 }
 
                 caregiverCard.getChildren().addAll(cName, childCount, childrenList);
-                caregiverList.getChildren().add(caregiverCard);
+                tilePane.getChildren().add(caregiverCard);
             }
-            resultsScroll.setContent(caregiverList);
+            resultsScroll.setContent(tilePane);
+        };
+        
+        // Search with text change listener
+        searchField.textProperty().addListener((obs, oldVal, newVal) -> displayCaregivers.run());
+        
+        // Clear button
+        clearBtn.setOnAction(e -> {
+            searchField.clear();
+            displayCaregivers.run();
         });
+        
+        // Display all caregivers on load
+        displayCaregivers.run();
 
         page.getChildren().addAll(new VBox(4, title, sub), searchBox, resultsScroll);
         return wrapScroll(page);
