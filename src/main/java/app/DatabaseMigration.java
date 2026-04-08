@@ -10,34 +10,40 @@ public class DatabaseMigration {
 
     public static void main(String[] args) {
         try {
-            DBUtil.initialize();
-            Connection conn = DBUtil.getConnection();
-            
-            System.out.println("=== GUARDIAN LINK DATABASE MIGRATION ===\n");
-            
-            // Migrate users table - add phone_number column if not exists
-            System.out.println("1. Checking users table schema...");
-            migrateUsersTable(conn);
-            
-            // Migrate children table - add assigned_caregiver_id column if not exists
-            System.out.println("\n2. Checking children table schema...");
-            migrateChildrenTable(conn);
-            
-            // Create notifications table if not exists
-            System.out.println("\n3. Checking notifications table...");
-            createNotificationsTable(conn);
-            
-            // Create index on assigned_caregiver_id
-            System.out.println("\n4. Creating indexes...");
-            createIndexes(conn);
-            
-            System.out.println("\n=== MIGRATION COMPLETE ===");
-            conn.close();
-            
+            runMigrations();
+            System.out.println("=== MIGRATION COMPLETE ===");
         } catch (Exception e) {
             System.err.println("Migration failed: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Run all database migrations
+     */
+    public static void runMigrations() throws Exception {
+        DBUtil.initialize();
+        Connection conn = DBUtil.getConnection();
+        
+        System.out.println("=== GUARDIAN LINK DATABASE MIGRATION ===\n");
+        
+        // Migrate users table - add phone_number column if not exists
+        System.out.println("1. Checking users table schema...");
+        migrateUsersTable(conn);
+        
+        // Migrate children table - add assigned_caregiver_id column if not exists
+        System.out.println("\n2. Checking children table schema...");
+        migrateChildrenTable(conn);
+        
+        // Create notifications table if not exists
+        System.out.println("\n3. Checking notifications table...");
+        createNotificationsTable(conn);
+        
+        // Create index on assigned_caregiver_id
+        System.out.println("\n4. Creating indexes...");
+        createIndexes(conn);
+        
+        conn.close();
     }
 
     private static void migrateUsersTable(Connection conn) {
@@ -121,7 +127,7 @@ public class DatabaseMigration {
                         "child_name VARCHAR(255) NOT NULL, " +
                         "child_id INTEGER NOT NULL, " +
                         "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, " +
-                        "is_read TINYINT DEFAULT 0, " +
+                        "is_read INTEGER DEFAULT 0, " +
                         "FOREIGN KEY (caregiver_id) REFERENCES users(id) ON DELETE CASCADE, " +
                         "FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE" +
                         ")";

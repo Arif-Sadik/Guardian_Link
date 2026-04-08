@@ -18,8 +18,10 @@ import service.ChildService;
 import service.UserService;
 import service.MedicalRecordService;
 import service.EducationRecordService;
+import service.NotificationService;
 import model.entity.Donation;
 import model.entity.Child;
+import model.entity.Notification;
 import util.ThemeManager;
 
 import java.time.LocalDateTime;
@@ -46,6 +48,7 @@ public class SupportController {
     private final UserService userService = new UserService();
     private final MedicalRecordService medicalRecordService = new MedicalRecordService();
     private final EducationRecordService educationRecordService = new EducationRecordService();
+    private final NotificationService notificationService = new NotificationService();
 
     // Theme constants
     private static final String PRIMARY = ThemeManager.PRIMARY;
@@ -1230,7 +1233,45 @@ public class SupportController {
                 messageLabel.setTextFill(Color.web(TEXT()));
                 messageLabel.setWrapText(true);
 
-                inquiryItem.getChildren().addAll(timestamp, categoryLabel, subjectLabel, messageLabel);
+                // Reply button
+                Button replyBtn = new Button("Reply to Donor");
+                replyBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; "
+                        + "-fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 11px;");
+                
+                final String donorUsername = donor.getUsername();
+                final SystemLog logEntry = log;
+                replyBtn.setOnAction(e -> {
+                    TextInputDialog replyDialog = new TextInputDialog();
+                    replyDialog.setTitle("Reply to " + donorUsername);
+                    replyDialog.setHeaderText("Send a response to the donor's inquiry");
+                    replyDialog.setContentText("Your reply:");
+                    
+                    java.util.Optional<String> result = replyDialog.showAndWait();
+                    if (result.isPresent() && !result.get().trim().isEmpty()) {
+                        String reply = result.get().trim();
+                        
+                        // Create notification for donor
+                        Notification notification = new Notification();
+                        notification.setCaregiverId(donor.getId());
+                        notification.setMessage("Support Response: " + reply);
+                        notification.setNotificationType("SUPPORT_REPLY");
+                        notification.setChildName("Inquiry Response");
+                        notification.setChildId(0);
+                        notification.setRead(false);
+                        notification.setTimestamp(java.time.LocalDateTime.now().toString());
+                        
+                        notificationService.createNotification(notification);
+                        
+                        // Show confirmation
+                        Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                        successAlert.setTitle("Reply Sent");
+                        successAlert.setHeaderText(null);
+                        successAlert.setContentText("Your reply has been sent to " + donorUsername);
+                        successAlert.showAndWait();
+                    }
+                });
+
+                inquiryItem.getChildren().addAll(timestamp, categoryLabel, subjectLabel, messageLabel, replyBtn);
                 content.getChildren().add(inquiryItem);
             }
         }

@@ -16,6 +16,7 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import model.entity.Child;
 import model.entity.Donation;
+import model.entity.Notification;
 import model.entity.SystemLog;
 import model.user.User;
 import model.user.UserRole;
@@ -26,6 +27,7 @@ import model.user.Caregiver;
 import model.user.Support;
 import service.ChildService;
 import service.DonationService;
+import service.NotificationService;
 import service.SystemLogService;
 import service.UserService;
 import service.RolePermissionsService;
@@ -56,6 +58,7 @@ public class AdminController {
     private final ChildService childService = new ChildService();
     private final DonationService donationService = new DonationService();
     private final SystemLogService systemLogService = new SystemLogService();
+    private final NotificationService notificationService = new NotificationService();
     private final RolePermissionsService rolePermissionsService = new RolePermissionsService();
     private final MedicalRecordService medicalRecordService = new MedicalRecordService();
     private final EducationRecordService educationRecordService = new EducationRecordService();
@@ -66,18 +69,7 @@ public class AdminController {
     private boolean isShowingForm = false; // Flag to prevent auto-refresh during form display
     private Timeline refreshTimer; // Store reference to timer for control
 
-    private java.util.List<String[]> activeAlerts = new java.util.ArrayList<>(java.util.Arrays.asList(
-            new String[] { "critical", "Low Wallet Balance", "ALT-001", "2 hours ago",
-                    "Child CH-1024 has wallet balance below threshold", "CH-1024" },
-            new String[] { "critical", "Emergency Medical Situation", "ALT-002", "3 hours ago",
-                    "Child CH-1087 requires immediate medical attention", "CH-1087" },
-            new String[] { "warning", "Missed Medical Appointment", "ALT-003", "1 day ago",
-                    "Child CH-1024 missed scheduled medical checkup", "CH-1024" },
-            new String[] { "warning", "Low Attendance Rate", "ALT-004", "1 day ago",
-                    "Child CH-1045 attendance dropped to 78%",
-                    "CH-1045" },
-            new String[] { "info", "New Donor Registration", "ALT-005", "2 days ago",
-                    "New donor pending verification: John Smith", "" }));
+    private java.util.List<String[]> activeAlerts = new java.util.ArrayList<>();
 
     // Figma tokens - using ThemeManager for theme-aware colors
     private static final String PRIMARY = ThemeManager.PRIMARY;
@@ -130,13 +122,14 @@ public class AdminController {
         root.setCenter(buildDashboardPage());
         root.setStyle("-fx-background-color: " + BG() + ";");
 
-        // Auto-refresh timer: refresh the active page every 30 seconds for real-time
+        // Auto-refresh timer: refresh the active page every 180 seconds (3 minutes) for real-time
         // data (but skip if a form is being shown)
-        refreshTimer = new Timeline(new KeyFrame(Duration.seconds(30), ev -> {
+        refreshTimer = new Timeline(new KeyFrame(Duration.seconds(180), ev -> {
             if (!isShowingForm) {
                 switch (activePage) {
                     case "dashboard" -> root.setCenter(buildDashboardPage());
                     case "children" -> root.setCenter(buildChildrenPage());
+                    case "alerts" -> root.setCenter(buildAlertsPage());
                     case "reports" -> root.setCenter(buildReportsPage());
                     case "admin" -> root.setCenter(buildAdminPage());
                 }
@@ -802,6 +795,13 @@ public class AdminController {
         d.setTextFill(Color.web(MUTED_FG()));
 
         card.getChildren().addAll(ic, t, d);
+        
+        // Hover effect
+        card.setOnMouseEntered(e -> card.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-color: " + PRIMARY
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;"));
+        card.setOnMouseExited(e -> card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8; -fx-cursor: hand;"));
+        
         card.setOnMouseClicked(e -> {
             activePage = targetPage;
             refreshSidebar();
@@ -1027,6 +1027,7 @@ public class AdminController {
     private ScrollPane buildAlertsPage() {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
+        page.setStyle("-fx-background-color: " + BG() + ";");
 
         Label title = new Label("Alerts & Notifications");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
@@ -1035,115 +1036,119 @@ public class AdminController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        // Get role-specific alerts
-        java.util.List<String[]> roleAlerts = getAlertsForRole();
-        
-        long criticalCount = roleAlerts.stream().filter(a -> a[0].equals("critical")).count();
-        long warningCount = roleAlerts.stream().filter(a -> a[0].equals("warning")).count();
-        long totalActive = roleAlerts.size();
+            // Get role-specific alerts
+            java.util.List<String[]> roleAlerts = getAlertsForRole();
+            
+            long criticalCount = roleAlerts.stream().filter(a -> a != null && a.length > 0 && a[0].equals("critical")).count();
+            long warningCount = roleAlerts.stream().filter(a -> a != null && a.length > 0 && a[0].equals("warning")).count();
+            long totalActive = roleAlerts.size();
 
-        HBox stats = new HBox(16);
-        stats.getChildren().addAll(
-                statCard("Total Active", String.valueOf(totalActive), "Requires attention", WARNING, MUTED_FG()),
-                statCard("Critical", String.valueOf(criticalCount), "Immediate action needed", DESTRUCTIVE,
-                        DESTRUCTIVE),
-                statCard("Warnings", String.valueOf(warningCount), "Review soon", WARNING, WARNING),
-                statCard("Resolved Today", "0", "Completed", SECONDARY, SECONDARY));
+            HBox stats = new HBox(16);
+            stats.getChildren().addAll(
+                    statCard("Total Active", String.valueOf(totalActive), "Requires attention", WARNING, MUTED_FG()),
+                    statCard("Critical", String.valueOf(criticalCount), "Immediate action needed", DESTRUCTIVE,
+                            DESTRUCTIVE),
+                    statCard("Warnings", String.valueOf(warningCount), "Review soon", WARNING, WARNING),
+                    statCard("Resolved Today", "0", "Completed", SECONDARY, SECONDARY));
 
-        Label activeTitle = new Label("Active Alerts");
-        activeTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
-        activeTitle.setTextFill(Color.web(TEXT()));
+            Label activeTitle = new Label("Active Alerts");
+            activeTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+            activeTitle.setTextFill(Color.web(TEXT()));
 
-        VBox alertsList = new VBox(12);
-        
-        if (roleAlerts.isEmpty()) {
-            Label noAlerts = new Label("No alerts for your role at this time.");
-            noAlerts.setFont(Font.font("Segoe UI", 13));
-            noAlerts.setTextFill(Color.web(MUTED_FG()));
-            alertsList.getChildren().add(noAlerts);
-        } else {
-            for (String[] a : roleAlerts) {
-                String status = a[0];
-                String borderC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
-                String bgC = status.equals("critical") ? DESTRUCTIVE + "0D"
-                        : status.equals("warning") ? WARNING + "0D" : PRIMARY + "0D";
-                String iconC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
-                String iconChar = status.equals("critical") ? "\u2757" : status.equals("warning") ? "\u26A0" : "\u2139";
+            VBox alertsList = new VBox(12);
+            
+            if (roleAlerts.isEmpty()) {
+                Label noAlerts = new Label("No alerts at this moment.");
+                noAlerts.setFont(Font.font("Segoe UI", 13));
+                noAlerts.setTextFill(Color.web(MUTED_FG()));
+                alertsList.getChildren().add(noAlerts);
+            } else {
+                for (String[] a : roleAlerts) {
+                    if (a == null || a.length < 5) {
+                        continue;
+                    }
+                    
+                    String status = a[0];
+                    String borderC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
+                    String bgC = status.equals("critical") ? DESTRUCTIVE + "0D"
+                            : status.equals("warning") ? WARNING + "0D" : PRIMARY + "0D";
+                    String iconC = status.equals("critical") ? DESTRUCTIVE : status.equals("warning") ? WARNING : PRIMARY;
+                    String iconChar = status.equals("critical") ? "\u2757" : status.equals("warning") ? "\u26A0" : "\u2139";
 
-                VBox alertCard = new VBox(8);
-                alertCard.setPadding(new Insets(16));
-                alertCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
-                        + "; -fx-border-width: " + (status.equals("critical") ? "2" : "1")
-                        + "; -fx-background-radius: 8; -fx-border-radius: 8;");
+                    VBox alertCard = new VBox(8);
+                    alertCard.setPadding(new Insets(16));
+                    alertCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
+                            + "; -fx-border-width: " + (status.equals("critical") ? "2" : "1")
+                            + "; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-                HBox top = new HBox(12);
-                top.setAlignment(Pos.TOP_LEFT);
-                StackPane iconBox = new StackPane();
-                iconBox.setPrefSize(40, 40);
-                iconBox.setStyle("-fx-background-color: " + bgC + "; -fx-background-radius: 4;");
-                Label icon = new Label(iconChar);
-                icon.setFont(Font.font("Segoe UI Emoji", 18));
-                icon.setTextFill(Color.web(iconC));
-                iconBox.getChildren().add(icon);
+                    HBox top = new HBox(12);
+                    top.setAlignment(Pos.TOP_LEFT);
+                    StackPane iconBox = new StackPane();
+                    iconBox.setPrefSize(40, 40);
+                    iconBox.setStyle("-fx-background-color: " + bgC + "; -fx-background-radius: 4;");
+                    Label icon = new Label(iconChar);
+                    icon.setFont(Font.font("Segoe UI Emoji", 18));
+                    icon.setTextFill(Color.web(iconC));
+                    iconBox.getChildren().add(icon);
 
-                VBox info = new VBox(4);
-                HBox.setHgrow(info, Priority.ALWAYS);
-                Label aTitle = new Label(a[1]);
-                aTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
-                aTitle.setTextFill(Color.web(iconC));
+                    VBox info = new VBox(4);
+                    HBox.setHgrow(info, Priority.ALWAYS);
+                    Label aTitle = new Label(a[1]);
+                    aTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+                    aTitle.setTextFill(Color.web(iconC));
 
-                Label aId = new Label(a[2]);
-                aId.setFont(Font.font("Segoe UI", 11));
-                aId.setTextFill(Color.web(MUTED_FG()));
-                Label aDesc = new Label(a[4]);
-                aDesc.setFont(Font.font("Segoe UI", 13));
-                aDesc.setTextFill(Color.web(TEXT()));
-                aDesc.setWrapText(true);
+                    Label aId = new Label(a[2]);
+                    aId.setFont(Font.font("Segoe UI", 11));
+                    aId.setTextFill(Color.web(MUTED_FG()));
+                    Label aDesc = new Label(a[4]);
+                    aDesc.setFont(Font.font("Segoe UI", 13));
+                    aDesc.setTextFill(Color.web(TEXT()));
+                    aDesc.setWrapText(true);
 
-                info.getChildren().addAll(aTitle, aId, aDesc);
-                if (!a[5].isEmpty()) {
-                    Label related = new Label("Related Child: " + a[5]);
-                    related.setFont(Font.font("Consolas", 11));
-                    related.setTextFill(Color.web(MUTED_FG()));
-                    info.getChildren().add(related);
+                    info.getChildren().addAll(aTitle, aId, aDesc);
+                    if (a.length > 5 && a[5] != null && !a[5].isEmpty()) {
+                        Label related = new Label("Related Child: " + a[5]);
+                        related.setFont(Font.font("Consolas", 11));
+                        related.setTextFill(Color.web(MUTED_FG()));
+                        info.getChildren().add(related);
+                    }
+
+                    HBox btns = new HBox(12);
+                    btns.setPadding(new Insets(8, 0, 0, 0));
+                    Button vd = new Button("View Details");
+                    vd.setStyle("-fx-background-color: " + PRIMARY
+                            + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+                    final String[] alertData = a;
+                    vd.setOnAction(e -> root.setCenter(buildAlertDetailView(alertData)));
+
+                    Button mr = new Button("Mark Resolved");
+                    mr.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
+                            + "; -fx-border-color: " + SECONDARY
+                            + "; -fx-border-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+
+                    mr.setOnAction(e -> {
+                        activeAlerts.remove(alertData);
+                        root.setCenter(buildAlertsPage());
+                    });
+
+                    btns.getChildren().addAll(vd, mr);
+                    info.getChildren().add(btns);
+
+                    Label time = new Label(a[3]);
+                    time.setFont(Font.font("Segoe UI", 11));
+                    time.setTextFill(Color.web(MUTED_FG()));
+
+                    top.getChildren().addAll(iconBox, info, time);
+                    alertCard.getChildren().add(top);
+                    alertsList.getChildren().add(alertCard);
                 }
-
-                HBox btns = new HBox(12);
-                btns.setPadding(new Insets(8, 0, 0, 0));
-                Button vd = new Button("View Details");
-                vd.setStyle("-fx-background-color: " + PRIMARY
-                        + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
-                final String[] alertData = a;
-                vd.setOnAction(e -> root.setCenter(buildAlertDetailView(alertData)));
-
-                Button mr = new Button("Mark Resolved");
-                mr.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
-                        + "; -fx-border-color: " + SECONDARY
-                        + "; -fx-border-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
-
-                mr.setOnAction(e -> {
-                    activeAlerts.remove(alertData);
-                    root.setCenter(buildAlertsPage());
-                });
-
-                btns.getChildren().addAll(vd, mr);
-                info.getChildren().add(btns);
-
-                Label time = new Label(a[3]);
-                time.setFont(Font.font("Segoe UI", 11));
-                time.setTextFill(Color.web(MUTED_FG()));
-
-                top.getChildren().addAll(iconBox, info, time);
-                alertCard.getChildren().add(top);
-                alertsList.getChildren().add(alertCard);
             }
-        }
 
-        page.getChildren().addAll(new VBox(4, title, sub), stats, activeTitle, alertsList);
-        ScrollPane sp = new ScrollPane(page);
-        sp.setFitToWidth(true);
-        sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
-        return sp;
+            page.getChildren().addAll(new VBox(4, title, sub), stats, activeTitle, alertsList);
+            ScrollPane sp = new ScrollPane(page);
+            sp.setFitToWidth(true);
+            sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
+            return sp;
     }
 
     // ═══════════ REPORTS PAGE ═══════════
@@ -1237,12 +1242,12 @@ public class AdminController {
                 try (FileWriter fw = new FileWriter(file)) {
                     switch (selectedType) {
                         case "Donation & Financial Report" -> {
-                            fw.write("Donor,Child,Amount,Date,Purpose\n");
+                            fw.write("Donor,Child,Amount,Date\n");
                             for (Donation d : allDonations) {
-                                fw.write(String.format("%s,%s,%.0f,%s,%s\n",
+                                fw.write(String.format("%s,%s,%.0f,%s\n",
                                         userNames.getOrDefault(d.getDonorId(), "Unknown"),
                                         childNames.getOrDefault(d.getChildId(), "Unknown"),
-                                        d.getAmount(), d.getDate(), d.getPurpose()));
+                                        d.getAmount(), d.getDate()));
                             }
                         }
                         case "Child Welfare Summary" -> {
@@ -1442,7 +1447,7 @@ public class AdminController {
                 reportCard.getChildren().add(summaryStats);
 
                 GridPane donGrid = new GridPane();
-                String[] donCols = { "Donor", "Child", "Amount", "Date", "Purpose" };
+                String[] donCols = { "Donor", "Child", "Amount", "Date" };
                 for (int i = 0; i < donCols.length; i++) {
                     Label h = new Label(donCols[i]);
                     h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
@@ -1458,8 +1463,7 @@ public class AdminController {
                             userNames.getOrDefault(don.getDonorId(), "Donor #" + don.getDonorId()),
                             childNames.getOrDefault(don.getChildId(), "Child #" + don.getChildId()),
                             String.format("\u09F3%,.0f", don.getAmount()),
-                            don.getDate() != null ? don.getDate() : "",
-                            don.getPurpose() != null ? don.getPurpose() : ""
+                            don.getDate() != null ? don.getDate() : ""
                     };
                     for (int c = 0; c < rowData.length; c++) {
                         Label cell = new Label(rowData[c]);
@@ -1752,7 +1756,7 @@ public class AdminController {
         hdr.getChildren().addAll(tl, sp1, search, addUser);
 
         GridPane grid = new GridPane();
-        String[] cols = { "User ID", "Name", "Email", "Role", "Status", "Last Login", "Actions" };
+        String[] cols = { "User ID", "Name", "Email", "Role", "Status", "Actions" };
         for (int i = 0; i < cols.length; i++) {
             Label h = new Label(cols[i]);
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
@@ -1770,9 +1774,8 @@ public class AdminController {
             String email = dbUser.getEmail() != null ? dbUser.getEmail() : dbUser.getUsername() + "@guardianlink.org";
             String role = dbUser.getRole().toString().replace("_", " ");
             String status = dbUser.isApproved() ? "Active" : "Pending";
-            String lastLogin = "N/A";
 
-            String[] u = new String[] { userId, name, email, role, status, lastLogin };
+            String[] u = new String[] { userId, name, email, role, status };
 
             // Filter logic
             if (!searchQuery.isEmpty()) {
@@ -1792,7 +1795,7 @@ public class AdminController {
                 cell.setFont(Font.font(c == 0 ? "Consolas" : "Segoe UI", c == 0 ? 12 : 13));
                 if (c == 1)
                     cell.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
-                if (c == 2 || c == 5)
+                if (c == 2)
                     cell.setTextFill(Color.web(MUTED_FG()));
                 cell.setPadding(new Insets(12, 16, 12, 16));
                 cell.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
@@ -1848,7 +1851,7 @@ public class AdminController {
                 actions.getChildren().add(0, approve);
             }
 
-            grid.add(actions, 6, rowCount);
+            grid.add(actions, 5, rowCount);
             rowCount++;
         }
 
@@ -2396,6 +2399,8 @@ public class AdminController {
         details.add(new Label("Related Entity:"), 0, 1);
         details.add(new Label(alert[5]), 1, 1);
 
+        HBox buttons = new HBox(12);
+        
         Button resolve = new Button("Mark as Resolved");
         resolve.setStyle("-fx-background-color: " + util.ThemeManager.SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;");
@@ -2403,8 +2408,76 @@ public class AdminController {
             activeAlerts.remove(alert);
             root.setCenter(buildAlertsPage());
         });
+        
+        buttons.getChildren().add(resolve);
+        
+        // Add "Notify Donor" button for subscription alerts
+        if (alert[1].contains("Subscription") && alert.length > 7) {
+            Button notifyDonor = new Button("Notify Donor to Deposit");
+            notifyDonor.setStyle("-fx-background-color: " + util.ThemeManager.PRIMARY
+                    + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 20; -fx-font-weight: bold; -fx-cursor: hand;");
+            
+            final String[] alertData = alert;
+            notifyDonor.setOnAction(e -> {
+                try {
+                    int donorId = Integer.parseInt(alert[7]);
+                    int donationId = Integer.parseInt(alert[6]);
+                    User donor = userService.findById(donorId);
+                    
+                    if (donor != null && donor instanceof Donor) {
+                        Donor donorUser = (Donor) donor;
+                        // Get child info from alert
+                        String childCode = alert[5];
+                        String childId = childCode.substring(3); // Remove "CH-" prefix
+                        Child child = childService.getChildById(Integer.parseInt(childId));
+                        
+                        // Create notification message
+                        String message = "Your subscription for " + child.getName() + 
+                            " is ending soon. Please deposit funds to continue supporting this child.";
+                        String title_notif = "Subscription Renewal Required";
+                        
+                        // Create system log for this notification
+                        SystemLog log = new SystemLog();
+                        log.setEventType("DONOR_NOTIFICATION_SENT");
+                        log.setDescription("Admin notified donor " + donorUser.getUsername() + 
+                            " about subscription renewal for child " + child.getName());
+                        log.setActor(user.getUsername());
+                        log.setTimestamp(java.time.LocalDateTime.now().toString());
+                        systemLogService.save(log);
+                        
+                        // Create notification
+                        Notification notification = new Notification();
+                        notification.setCaregiverId(donorId);
+                        notification.setMessage(title_notif + ": " + message);
+                        notification.setNotificationType("SUBSCRIPTION_RENEWAL");
+                        notification.setChildName(child.getName());
+                        notification.setChildId(child.getId());
+                        notification.setRead(false);
+                        notification.setTimestamp(java.time.LocalDateTime.now().toString());
+                        notificationService.createNotification(notification);
+                        
+                        // Show success message
+                        Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                        successAlert.setTitle("Success");
+                        successAlert.setHeaderText(null);
+                        successAlert.setContentText("Donor " + donorUser.getUsername() + " has been notified about the subscription renewal.");
+                        successAlert.showAndWait();
+                        
+                        root.setCenter(buildAlertsPage());
+                    }
+                } catch (Exception ex) {
+                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+                    errorAlert.setTitle("Error");
+                    errorAlert.setHeaderText(null);
+                    errorAlert.setContentText("Failed to notify donor: " + ex.getMessage());
+                    errorAlert.showAndWait();
+                }
+            });
+            
+            buttons.getChildren().add(notifyDonor);
+        }
 
-        card.getChildren().addAll(typeLabel, title, desc, new Separator(), details, resolve);
+        card.getChildren().addAll(typeLabel, title, desc, new Separator(), details, buttons);
         page.getChildren().addAll(backBtn, card);
         return wrapScroll(page);
     }
@@ -2980,6 +3053,12 @@ public class AdminController {
         java.util.List<String[]> roleSpecificAlerts = new java.util.ArrayList<>();
         UserRole userRole = user.getRole();
         
+        // Add dynamic subscription alerts for system admins
+        if (userRole == UserRole.SYSTEM_ADMIN) {
+            java.util.List<String[]> subAlerts = generateSubscriptionAlerts();
+            roleSpecificAlerts.addAll(subAlerts);
+        }
+        
         for (String[] alert : activeAlerts) {
             String title = alert[1];
             String description = alert[4];
@@ -3030,6 +3109,59 @@ public class AdminController {
         }
         
         return roleSpecificAlerts;
+    }
+
+    /**
+     * Generate real-time alerts for subscriptions ending within 7 days
+     */
+    private java.util.List<String[]> generateSubscriptionAlerts() {
+        java.util.List<String[]> subscriptionAlerts = new java.util.ArrayList<>();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate sevenDaysFromNow = today.plusDays(7);
+        
+        java.util.List<Donation> allDonations = donationService.getAll();
+        if (allDonations == null || allDonations.isEmpty()) {
+            return subscriptionAlerts;
+        }
+        
+        for (Donation donation : allDonations) {
+            if (donation.isRecurring() && donation.getEndDate() != null && !donation.getEndDate().isEmpty()) {
+                try {
+                    java.time.LocalDate endDate = java.time.LocalDate.parse(donation.getEndDate());
+                    
+                    // If subscription ends within 7 days
+                    if (!endDate.isBefore(today) && !endDate.isAfter(sevenDaysFromNow)) {
+                        Child child = childService.getChildById(donation.getChildId());
+                        Donor donor = (Donor) userService.findById(donation.getDonorId());
+                        
+                        if (child != null && donor != null) {
+                            long daysUntilExpiry = java.time.temporal.ChronoUnit.DAYS.between(today, endDate);
+                            String title = "Subscription Ending Soon";
+                            String id = "ALT-SUB-" + donation.getId();
+                            String timestamp = daysUntilExpiry + " day(s) remaining";
+                            String description = "Child " + child.getName() + " (CH-" + child.getId() + 
+                                ") subscription ending in " + daysUntilExpiry + " day(s). Donor: " + donor.getUsername();
+                            String childId = "CH-" + child.getId();
+                            
+                            subscriptionAlerts.add(new String[]{
+                                "critical",
+                                title,
+                                id,
+                                timestamp,
+                                description,
+                                childId,
+                                String.valueOf(donation.getId()),
+                                String.valueOf(donation.getDonorId())
+                            });
+                        }
+                    }
+                } catch (Exception e) {
+                    // Skip invalid date formats
+                }
+            }
+        }
+        
+        return subscriptionAlerts;
     }
 
     private HBox formRow(String label, Node field) {

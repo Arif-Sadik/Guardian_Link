@@ -15,6 +15,14 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         // Initialize database (creates tables + seeds admin on first run)
         DBUtil.initialize();
+        
+        // Run database migrations (creates notifications table, adds new columns, etc.)
+        try {
+            DatabaseMigration.runMigrations();
+        } catch (Exception e) {
+            System.err.println("Warning: Database migration failed: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         // Set initial window size
         primaryStage.setWidth(1200);

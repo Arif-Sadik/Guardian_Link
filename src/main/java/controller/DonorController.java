@@ -12,10 +12,12 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import model.entity.Child;
 import model.entity.Donation;
+import model.entity.Notification;
 import model.entity.SystemLog;
 import model.user.User;
 import service.ChildService;
 import service.DonationService;
+import service.NotificationService;
 import service.SystemLogService;
 import service.MedicalRecordService;
 import service.EducationRecordService;
@@ -48,6 +50,7 @@ public class DonorController {
 
     private final ChildService childService = new ChildService();
     private final DonationService donationService = new DonationService();
+    private final NotificationService notificationService = new NotificationService();
     private final SystemLogService systemLogService = new SystemLogService();
     private final MedicalRecordService medicalRecordService = new MedicalRecordService();
     private final EducationRecordService educationRecordService = new EducationRecordService();
@@ -119,6 +122,8 @@ public class DonorController {
             case "dashboard" -> root.setCenter(buildDashboardPage());
             case "sponsorship" -> root.setCenter(buildSponsorshipPage());
             case "donations" -> root.setCenter(buildDonationsPage());
+            case "alerts" -> root.setCenter(buildAlertsPage());
+            case "inquiries" -> root.setCenter(buildInquiriesPage());
             case "reports" -> root.setCenter(buildReportsPage());
         }
     }
@@ -443,6 +448,7 @@ public class DonorController {
                 sidebarBtn("Dashboard", "dashboard"),
                 sidebarBtn("Sponsorships", "sponsorship"),
                 sidebarBtn("Donations", "donations"),
+                sidebarBtn("Alerts", "alerts"),
                 sidebarBtn("Inquiries", "inquiries"),
                 sidebarBtn("Reports", "reports"));
         sidebar.getChildren().add(navItems);
@@ -523,6 +529,7 @@ public class DonorController {
                 case "dashboard" -> root.setCenter(buildDashboardPage());
                 case "sponsorship" -> root.setCenter(buildSponsorshipPage());
                 case "donations" -> root.setCenter(buildDonationsPage());
+                case "alerts" -> root.setCenter(buildAlertsPage());
                 case "inquiries" -> root.setCenter(buildInquiriesPage());
                 case "reports" -> root.setCenter(buildReportsPage());
             }
@@ -1054,6 +1061,147 @@ public class DonorController {
         return wrapScroll(page);
     }
 
+    // ═══════════ ALERTS & NOTIFICATIONS PAGE ═══════════
+    private ScrollPane buildAlertsPage() {
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24));
+        page.setStyle("-fx-background-color: " + BG() + ";");
+
+        Label title = new Label("Alerts & Notifications");
+        title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
+        title.setTextFill(Color.web(TEXT()));
+        Label sub = new Label("Stay updated on your donations and subscriptions");
+        sub.setFont(Font.font("Segoe UI", 13));
+        sub.setTextFill(Color.web(MUTED_FG()));
+
+        // Get donor's notifications
+        List<Notification> notifications = notificationService.getNotificationsByCaregiver(user.getId());
+        
+        // Count unread
+        long unreadCount = notifications.stream().filter(n -> !n.isRead()).count();
+        
+        // Stats
+        HBox stats = new HBox(16);
+        stats.getChildren().addAll(
+                statCard("Total Notifications", String.valueOf(notifications.size()), "All time", SECONDARY),
+                statCard("Unread", String.valueOf(unreadCount), "Requires attention", INFO));
+
+        Label activeTitle = new Label("Your Notifications");
+        activeTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        activeTitle.setTextFill(Color.web(TEXT()));
+
+        VBox notificationsList = new VBox(12);
+        
+        if (notifications.isEmpty()) {
+            Label noAlerts = new Label("No notifications at this time.");
+            noAlerts.setFont(Font.font("Segoe UI", 13));
+            noAlerts.setTextFill(Color.web(MUTED_FG()));
+            notificationsList.getChildren().add(noAlerts);
+        } else {
+            for (Notification n : notifications) {
+                String type = n.getNotificationType() != null ? n.getNotificationType() : "INFO";
+                boolean isUnread = !n.isRead();
+                
+                // Determine colors based on notification type
+                String borderC = type.contains("SUBSCRIPTION") ? ThemeManager.DESTRUCTIVE : 
+                                  type.contains("RENEWAL") ? ThemeManager.WARNING : ThemeManager.PRIMARY;
+                String bgC = type.contains("SUBSCRIPTION") ? ThemeManager.DESTRUCTIVE + "0D" :
+                             type.contains("RENEWAL") ? ThemeManager.WARNING + "0D" : ThemeManager.PRIMARY + "0D";
+                String iconC = type.contains("SUBSCRIPTION") ? ThemeManager.DESTRUCTIVE :
+                               type.contains("RENEWAL") ? ThemeManager.WARNING : ThemeManager.PRIMARY;
+                String iconChar = type.contains("SUBSCRIPTION") ? "\u26A0" : 
+                                  type.contains("RENEWAL") ? "\u26A0" : "\u2139";
+
+                VBox notCard = new VBox(8);
+                notCard.setPadding(new Insets(16));
+                notCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
+                        + "; -fx-border-width: " + (isUnread ? "2" : "1")
+                        + "; -fx-background-radius: 8; -fx-border-radius: 8;");
+
+                HBox top = new HBox(12);
+                top.setAlignment(Pos.TOP_LEFT);
+                StackPane iconBox = new StackPane();
+                iconBox.setPrefSize(40, 40);
+                iconBox.setStyle("-fx-background-color: " + bgC + "; -fx-background-radius: 4;");
+                Label icon = new Label(iconChar);
+                icon.setFont(Font.font("Segoe UI Emoji", 18));
+                icon.setTextFill(Color.web(iconC));
+                iconBox.getChildren().add(icon);
+
+                VBox info = new VBox(4);
+                HBox.setHgrow(info, Priority.ALWAYS);
+                
+                Label nTitle = new Label(type.replace("_", " "));
+                nTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+                nTitle.setTextFill(Color.web(iconC));
+                
+                Label nMsg = new Label(n.getMessage());
+                nMsg.setFont(Font.font("Segoe UI", 13));
+                nMsg.setTextFill(Color.web(TEXT()));
+                nMsg.setWrapText(true);
+                
+                info.getChildren().addAll(nTitle, nMsg);
+
+                HBox btns = new HBox(12);
+                btns.setPadding(new Insets(8, 0, 0, 0));
+                
+                if (isUnread) {
+                    Button markRead = new Button("Mark as Read");
+                    markRead.setStyle("-fx-background-color: " + PRIMARY
+                            + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+                    
+                    final Notification notifData = n;
+                    markRead.setOnAction(e -> {
+                        notificationService.markNotificationAsRead(n.getId());
+                        root.setCenter(buildAlertsPage());
+                    });
+                    btns.getChildren().add(markRead);
+                }
+                
+                // Add delete button
+                Button delete = new Button("Dismiss");
+                delete.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
+                        + "; -fx-border-color: " + SECONDARY
+                        + "; -fx-border-radius: 4; -fx-padding: 6 16; -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+                
+                delete.setOnAction(e -> {
+                    // Just mark as read to dismiss
+                    notificationService.markNotificationAsRead(n.getId());
+                    root.setCenter(buildAlertsPage());
+                });
+                btns.getChildren().add(delete);
+                
+                info.getChildren().add(btns);
+
+                Label time = new Label(n.getTimestamp() != null ? n.getTimestamp().substring(0, 10) : "");
+                time.setFont(Font.font("Segoe UI", 11));
+                time.setTextFill(Color.web(MUTED_FG()));
+
+                top.getChildren().addAll(iconBox, info, time);
+                notCard.getChildren().add(top);
+                notificationsList.getChildren().add(notCard);
+            }
+        }
+
+        // Mark all as read button
+        if (unreadCount > 0) {
+            Button markAllRead = new Button("Mark All as Read");
+            markAllRead.setStyle("-fx-background-color: " + PRIMARY
+                    + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 8 20; -fx-font-size: 13px; -fx-cursor: hand; -fx-font-weight: bold;");
+            markAllRead.setOnAction(e -> {
+                notificationService.markAllNotificationsAsRead(user.getId());
+                root.setCenter(buildAlertsPage());
+            });
+            notificationsList.getChildren().add(0, markAllRead);
+        }
+
+        page.getChildren().addAll(new VBox(4, title, sub), stats, activeTitle, notificationsList);
+        ScrollPane sp = new ScrollPane(page);
+        sp.setFitToWidth(true);
+        sp.setStyle("-fx-background: " + BG() + "; -fx-background-color: " + BG() + ";");
+        return sp;
+    }
+
     // ═══════════ REPORTS PAGE ═══════════
     private ScrollPane buildReportsPage() {
         VBox page = new VBox(20);
@@ -1203,6 +1351,60 @@ public class DonorController {
         amtField.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-text-fill: " + TEXT() + "; -fx-prompt-text-fill: " + MUTED_FG() + "; -fx-border-radius: 4; -fx-padding: 10; -fx-font-size: 13px;");
 
+        // Time Period (Subscription) - NEW
+        Label timePeriodLabel = new Label("Subscription Time Period");
+        timePeriodLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
+        timePeriodLabel.setTextFill(Color.web(TEXT()));
+        
+        ComboBox<String> timePeriodCombo = new ComboBox<>();
+        timePeriodCombo.getItems().addAll(
+            "One-time Donation",
+            "1 Month - \u09F35,000",
+            "2 Months - \u09F310,000",
+            "3 Months - \u09F315,000"
+        );
+        timePeriodCombo.setValue("One-time Donation");
+        timePeriodCombo.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-text-fill: " + TEXT() + "; -fx-border-radius: 4; -fx-padding: 10; -fx-font-size: 13px;");
+        
+        // Theme the ComboBox dropdown
+        timePeriodCombo.setButtonCell(new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : item);
+                setStyle("-fx-text-fill: " + TEXT() + "; -fx-padding: 6; -fx-background-color: " + CARD() + ";");
+            }
+        });
+        
+        timePeriodCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty ? "" : item);
+                if (empty || isSelected()) {
+                    setStyle("-fx-text-fill: white; -fx-padding: 6; -fx-background-color: " + PRIMARY + ";");
+                } else {
+                    setStyle("-fx-text-fill: " + TEXT() + "; -fx-padding: 6; -fx-background-color: " + CARD() + ";");
+                }
+            }
+        });
+        
+        // Auto-fill amount based on time period
+        timePeriodCombo.setOnAction(e -> {
+            String selected = timePeriodCombo.getValue();
+            if ("One-time Donation".equals(selected)) {
+                amtField.setText("");
+                amtField.setPromptText("e.g. 100");
+            } else if ("1 Month - \u09F35,000".equals(selected)) {
+                amtField.setText("5000");
+            } else if ("2 Months - \u09F310,000".equals(selected)) {
+                amtField.setText("10000");
+            } else if ("3 Months - \u09F315,000".equals(selected)) {
+                amtField.setText("15000");
+            }
+        });
+
         // Purpose dropdown
         Label purposeLabel = new Label("Purpose of Donation");
         purposeLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
@@ -1292,12 +1494,37 @@ public class DonorController {
             int childId = Integer.parseInt(selectedChild.split(" - ")[0]);
             
             String purpose = purposeCombo.getValue() != null ? purposeCombo.getValue() : "General Welfare";
-            Donation d = new Donation(user.getId(), childId, amount, purpose, LocalDate.now().toString());
+            
+            // Handle subscription data based on time period
+            String timePeriod = timePeriodCombo.getValue();
+            boolean isRecurring = !timePeriod.equals("One-time Donation");
+            String frequency = "";
+            String endDate = "";
+            
+            if (isRecurring) {
+                frequency = "Monthly";
+                LocalDate today = LocalDate.now();
+                
+                if (timePeriod.contains("1 Month")) {
+                    endDate = today.plusMonths(1).toString();
+                } else if (timePeriod.contains("2 Months")) {
+                    endDate = today.plusMonths(2).toString();
+                } else if (timePeriod.contains("3 Months")) {
+                    endDate = today.plusMonths(3).toString();
+                }
+            }
+            
+            // Create donation with subscription data
+            Donation d = new Donation(user.getId(), childId, amount, purpose, LocalDate.now().toString(), isRecurring, endDate, frequency);
             donationService.save(d);
-            systemLogService
-                    .save(new SystemLog("Donation", "Submitted donation of \u09F3" + amtText + " to child ID " + childId + " for " + purpose, user.getUsername(),
+            
+            String logMsg = "Submitted " + (isRecurring ? timePeriod + " subscription" : "one-time donation") + 
+                           " of \u09F3" + amtText + " to child ID " + childId + " for " + purpose;
+            systemLogService.save(new SystemLog("Donation", logMsg, user.getUsername(),
                             LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
-            Alert success = new Alert(Alert.AlertType.INFORMATION, "Donation submitted successfully!");
+            
+            Alert success = new Alert(Alert.AlertType.INFORMATION, 
+                (isRecurring ? "Subscription created" : "Donation submitted") + " successfully!");
             success.showAndWait();
             root.setCenter(buildSponsorshipPage()); // Return to sponsorship page with fresh data
         });
@@ -1424,7 +1651,7 @@ public class DonorController {
             return wrapScroll(page);
         }
 
-        form.getChildren().addAll(validationError, childLabel, childCombo, amtLabel, amtField,
+        form.getChildren().addAll(validationError, childLabel, childCombo, timePeriodLabel, timePeriodCombo, amtLabel, amtField,
                 payLabel, payCards, payNote, msgLabel, msgArea, submit);
 
         page.getChildren().addAll(backBtn, title, form);
