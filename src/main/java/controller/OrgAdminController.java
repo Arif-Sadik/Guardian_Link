@@ -275,13 +275,14 @@ public class OrgAdminController {
         detailsGrid.setHgap(16);
         detailsGrid.setVgap(12);
         
-        String[] labels = {"Username", "Email", "Phone", "Organization", "Role", "Status", "User ID"};
+        String[] labels = {"Username", "Email", "Phone", "Organization", "Role", "Work Boundaries", "Status", "User ID"};
         String[] values = {
             user.getUsername(),
             user.getEmail() != null ? user.getEmail() : "Not provided",
             user.getPhoneNumber() != null ? user.getPhoneNumber() : "Not provided",
             user.getOrganization() != null ? user.getOrganization() : "Not provided",
             user.getRole().name().replace("_", " "),
+            "Organization Specific",
             user.isApproved() ? "Active" : "Pending",
             "USR-" + String.format("%03d", user.getId())
         };
@@ -647,6 +648,16 @@ public class OrgAdminController {
         alert.showAndWait();
     }
 
+    private List<Child> getChildrenForOrganization() {
+        List<Child> allChildren = childService.getAllChildren();
+        if (user.getOrganization() == null || user.getOrganization().isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        return allChildren.stream()
+                .filter(c -> user.getOrganization().equals(c.getOrganization()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     private VBox buildChildrenTableFromDB(String heading) {
         VBox card = new VBox(0);
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
@@ -673,7 +684,7 @@ public class OrgAdminController {
         }
 
         // Load children from database
-        List<Child> children = childService.getAllChildren();
+        List<Child> children = getChildrenForOrganization();
         int row = 1;
         for (Child child : children) {
             // Child ID
@@ -764,7 +775,7 @@ public class OrgAdminController {
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
-        int totalChildren = childService.getAllChildren().size();
+        int totalChildren = getChildrenForOrganization().size();
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
                 statCard("Total Children", String.valueOf(totalChildren), "+" + totalChildren + " registered",
@@ -1914,7 +1925,7 @@ public class OrgAdminController {
         txHdr.getChildren().add(txTitle);
 
         GridPane txGrid = new GridPane();
-        String[] txCols = { "Date", "Donor ID", "Child ID", "Amount", "Purpose", "Status" };
+        String[] txCols = { "Date", "Donor ID", "Child ID", "Amount", "Status" };
         for (int i = 0; i < txCols.length; i++) {
             Label h = new Label(txCols[i]);
             h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
@@ -1950,11 +1961,7 @@ public class OrgAdminController {
             amtL.setPadding(new Insets(8, 16, 8, 16));
             amtL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
 
-            Label purL = new Label(don.getPurpose() != null ? don.getPurpose() : "");
-            purL.setFont(Font.font("Segoe UI", 12));
-            purL.setTextFill(Color.web(TEXT()));
-            purL.setPadding(new Insets(8, 16, 8, 16));
-            purL.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+            // Removed purpose column and its related logic
 
             Label stL = new Label(don.getStatus() != null ? don.getStatus() : "");
             stL.setFont(Font.font("Segoe UI", 11));
@@ -1969,8 +1976,7 @@ public class OrgAdminController {
             txGrid.add(donorL, 1, txRow);
             txGrid.add(childL, 2, txRow);
             txGrid.add(amtL, 3, txRow);
-            txGrid.add(purL, 4, txRow);
-            txGrid.add(stW, 5, txRow);
+            txGrid.add(stW, 4, txRow);
             txRow++;
         }
         if (allDonations.isEmpty()) {
@@ -1978,7 +1984,7 @@ public class OrgAdminController {
             noTx.setTextFill(Color.web(MUTED_FG()));
             noTx.setPadding(new Insets(16));
             txGrid.add(noTx, 0, 1);
-            GridPane.setColumnSpan(noTx, 6);
+            GridPane.setColumnSpan(noTx, 5);
         }
         txHistCard.getChildren().addAll(txHdr, txGrid);
 
@@ -2023,7 +2029,7 @@ public class OrgAdminController {
 
         // Load all expenses from each child
         List<Expense> allExpenses = new java.util.ArrayList<>();
-        for (Child ch : childService.getAllChildren()) {
+        for (Child ch : getChildrenForOrganization()) {
             allExpenses.addAll(expenseService.getByChildId(ch.getId()));
         }
         allExpenses.sort((a, b) -> {
@@ -2084,6 +2090,100 @@ public class OrgAdminController {
         expHistCard.getChildren().addAll(expHdr, expGrid);
         page.getChildren().add(expHistCard);
 
+        // ── Child Sponsorship Status table ──
+        VBox sponsorshipStatusCard = new VBox(0);
+        sponsorshipStatusCard.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+        HBox ssHdr = new HBox();
+        ssHdr.setPadding(new Insets(16));
+        ssHdr.setStyle("-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;");
+        Label ssTitle = new Label("Child Sponsorship Status");
+        ssTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
+        ssTitle.setTextFill(Color.web(TEXT()));
+        ssHdr.getChildren().add(ssTitle);
+
+        GridPane ssGrid = new GridPane();
+        String[] ssCols = { "Child ID", "Name", "Age", "Sponsorship Status", "Action" };
+        for (int i = 0; i < ssCols.length; i++) {
+            Label h = new Label(ssCols[i]);
+            h.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 11));
+            h.setPadding(new Insets(8, 16, 8, 16));
+            h.setMaxWidth(Double.MAX_VALUE);
+            h.setStyle("-fx-background-color: " + MUTED() + ";");
+            h.setTextFill(Color.web(TEXT()));
+            ssGrid.add(h, i, 0);
+        }
+
+        List<Child> orgChildren = getChildrenForOrganization();
+        int ssRow = 1;
+        for (Child child : orgChildren) {
+            String cellBorder = "-fx-border-color: " + BORDER() + "; -fx-border-width: 0 0 1 0;";
+            boolean isSponsored = child.getSponsorId() != null && child.getSponsorId() > 0;
+            
+            Label idL = new Label("CH-" + String.format("%04d", child.getId()));
+            idL.setFont(Font.font("Consolas", 12));
+            idL.setTextFill(Color.web(MUTED_FG()));
+            idL.setPadding(new Insets(12, 16, 12, 16));
+            idL.setStyle(cellBorder);
+
+            Label nameL = new Label(child.getName());
+            nameL.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+            nameL.setTextFill(Color.web(TEXT()));
+            nameL.setPadding(new Insets(12, 16, 12, 16));
+            nameL.setStyle(cellBorder);
+
+            Label ageL = new Label(String.valueOf(child.getAge()));
+            ageL.setFont(Font.font("Segoe UI", 12));
+            ageL.setTextFill(Color.web(TEXT()));
+            ageL.setPadding(new Insets(12, 16, 12, 16));
+            ageL.setStyle(cellBorder);
+
+            Label statusL = new Label(isSponsored ? "Sponsored" : "Not Sponsored");
+            statusL.setFont(Font.font("Segoe UI", 11));
+            String sc = isSponsored ? SECONDARY : WARNING;
+            statusL.setStyle("-fx-background-color: " + sc + "1A; -fx-text-fill: " + sc
+                    + "; -fx-background-radius: 4; -fx-padding: 2 8;");
+            HBox statusW = new HBox(statusL);
+            statusW.setPadding(new Insets(12, 16, 12, 16));
+            statusW.setStyle(cellBorder);
+
+            HBox actionW = new HBox();
+            actionW.setPadding(new Insets(12, 16, 12, 16));
+            actionW.setStyle(cellBorder);
+            
+            if (isSponsored) {
+                Hyperlink link = new Hyperlink("View details");
+                link.setFont(Font.font("Segoe UI", 13));
+                link.setTextFill(Color.web(PRIMARY));
+                final Child linkChild = child;
+                link.setOnAction(e -> {
+                    selectedChild = linkChild;
+                    activePage = "children";
+                    refreshSidebar();
+                    root.setCenter(buildChildProfileView(linkChild));
+                });
+                actionW.getChildren().add(link);
+            }
+
+            ssGrid.add(idL, 0, ssRow);
+            ssGrid.add(nameL, 1, ssRow);
+            ssGrid.add(ageL, 2, ssRow);
+            ssGrid.add(statusW, 3, ssRow);
+            ssGrid.add(actionW, 4, ssRow);
+            ssRow++;
+        }
+        
+        if (orgChildren.isEmpty()) {
+            Label noCh = new Label("No children found in this organization.");
+            noCh.setTextFill(Color.web(MUTED_FG()));
+            noCh.setPadding(new Insets(16));
+            ssGrid.add(noCh, 0, 1);
+            GridPane.setColumnSpan(noCh, 5);
+        }
+        
+        sponsorshipStatusCard.getChildren().addAll(ssHdr, ssGrid);
+        page.getChildren().add(sponsorshipStatusCard);
+
         return wrapScroll(page);
     }
 
@@ -2092,82 +2192,226 @@ public class OrgAdminController {
         VBox page = new VBox(20);
         page.setPadding(new Insets(24));
 
+        // Header
         Label title = new Label("Alerts & Notifications");
         title.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 20));
         title.setTextFill(Color.web(TEXT()));
-        Label sub = new Label("Monitor system alerts and emergencies");
+        Label sub = new Label("Live alerts for your organization — refreshes every 30 seconds");
         sub.setFont(Font.font("Segoe UI", 13));
         sub.setTextFill(Color.web(MUTED_FG()));
 
+        // Generate live alerts from DB
+        java.util.List<String[]> liveAlerts = generateOrgAlerts();
+
+        long criticalCount = liveAlerts.stream().filter(a -> "critical".equals(a[0])).count();
+        long warningCount  = liveAlerts.stream().filter(a -> "warning".equals(a[0])).count();
+        long infoCount     = liveAlerts.stream().filter(a -> "info".equals(a[0])).count();
+
+        // Stat cards — live counts
         HBox stats = new HBox(16);
         stats.getChildren().addAll(
-                statCard("Total Active", "5", "Requires attention", WARNING),
-                statCard("Critical", "2", "Immediate action needed", DESTRUCTIVE),
-                statCard("Warnings", "2", "Review soon", WARNING),
-                statCard("Resolved Today", "2", "Completed", SECONDARY));
+                statCard("Total Active",  String.valueOf(liveAlerts.size()), "Requires attention",   WARNING),
+                statCard("Critical",      String.valueOf(criticalCount),     "Immediate action needed", DESTRUCTIVE),
+                statCard("Warnings",      String.valueOf(warningCount),      "Review soon",          WARNING),
+                statCard("Info",          String.valueOf(infoCount),         "Informational",        SECONDARY));
 
         Label activeTitle = new Label("Active Alerts");
         activeTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 17));
         activeTitle.setTextFill(Color.web(TEXT()));
 
+        // Refresh timestamp
+        String nowStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+        Label refreshLabel = new Label("Last refreshed: " + nowStr);
+        refreshLabel.setFont(Font.font("Segoe UI", 11));
+        refreshLabel.setTextFill(Color.web(MUTED_FG()));
+        HBox refreshRow = new HBox(refreshLabel);
+        refreshRow.setAlignment(Pos.CENTER_RIGHT);
+
         VBox alertsList = new VBox(12);
-        String[][] alerts = {
-                { "critical", "Low Wallet Balance", "ALT-001", "2 hours ago",
-                        "Child CH-1024 has wallet balance below threshold" },
-                { "warning", "Missed Medical Appointment", "ALT-003", "1 day ago",
-                        "Child CH-1024 missed scheduled checkup" },
-                { "info", "New Donor Registration", "ALT-005", "2 days ago", "New donor pending verification" },
-        };
-        for (String[] a : alerts) {
-            String borderC = a[0].equals("critical") ? DESTRUCTIVE : BORDER();
-            String bgC = a[0].equals("critical") ? DESTRUCTIVE + "1A"
-                    : a[0].equals("warning") ? WARNING + "1A" : PRIMARY + "1A";
-            String iconC = a[0].equals("critical") ? DESTRUCTIVE : a[0].equals("warning") ? WARNING : PRIMARY;
 
-            VBox card = new VBox(8);
-            card.setPadding(new Insets(16));
-            card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
-                    + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
+        if (liveAlerts.isEmpty()) {
+            VBox emptyBox = new VBox(12);
+            emptyBox.setAlignment(Pos.CENTER);
+            emptyBox.setPadding(new Insets(40));
+            emptyBox.setStyle("-fx-background-color: " + CARD() + "; -fx-background-radius: 8; -fx-border-color: "
+                    + BORDER() + "; -fx-border-radius: 8;");
+            Label emptyIcon = new Label("\u2714");
+            emptyIcon.setFont(Font.font("Segoe UI Emoji", 36));
+            emptyIcon.setTextFill(Color.web(SECONDARY));
+            Label emptyMsg = new Label("All clear! No active alerts for your organization.");
+            emptyMsg.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 15));
+            emptyMsg.setTextFill(Color.web(MUTED_FG()));
+            emptyBox.getChildren().addAll(emptyIcon, emptyMsg);
+            alertsList.getChildren().add(emptyBox);
+        } else {
+            for (String[] a : liveAlerts) {
+                String borderC = "critical".equals(a[0]) ? DESTRUCTIVE
+                               : "warning".equals(a[0]) ? WARNING : BORDER();
+                String bgC    = "critical".equals(a[0]) ? DESTRUCTIVE + "1A"
+                               : "warning".equals(a[0])  ? WARNING + "1A" : PRIMARY + "1A";
+                String iconC  = "critical".equals(a[0]) ? DESTRUCTIVE
+                               : "warning".equals(a[0])  ? WARNING : PRIMARY;
+                String iconChar = "critical".equals(a[0]) ? "\u2757"
+                               : "warning".equals(a[0])   ? "\u26A0" : "\u2139";
 
-            HBox top = new HBox(12);
-            StackPane iconBox = new StackPane();
-            iconBox.setPrefSize(40, 40);
-            iconBox.setStyle("-fx-background-color: " + bgC + "; -fx-background-radius: 4;");
-            Label icon = new Label("\u26A0");
-            icon.setTextFill(Color.web(iconC));
-            iconBox.getChildren().add(icon);
+                VBox card = new VBox(8);
+                card.setPadding(new Insets(16));
+                card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + borderC
+                        + "; -fx-border-width: " + ("critical".equals(a[0]) ? "2" : "1")
+                        + "; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-            VBox info2 = new VBox(4);
-            HBox.setHgrow(info2, Priority.ALWAYS);
-            Label aTitle = new Label(a[1]);
-            aTitle.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 14));
-            aTitle.setTextFill(Color.web(TEXT()));
-            Label aDesc = new Label(a[4]);
-            aDesc.setFont(Font.font("Segoe UI", 13));
-            aDesc.setTextFill(Color.web(MUTED_FG()));
-            HBox btns = new HBox(8);
-            Button vd = new Button("View Details");
-            vd.setStyle("-fx-background-color: " + PRIMARY
-                    + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-font-size: 12px; -fx-cursor: hand;");
-            final String[] alertData = a;
-            vd.setOnAction(e -> root.setCenter(buildAlertDetailView(alertData)));
+                HBox top = new HBox(12);
+                top.setAlignment(Pos.TOP_LEFT);
+                StackPane iconBox = new StackPane();
+                iconBox.setPrefSize(40, 40);
+                iconBox.setStyle("-fx-background-color: " + bgC + "; -fx-background-radius: 4;");
+                Label icon = new Label(iconChar);
+                icon.setFont(Font.font("Segoe UI Emoji", 18));
+                icon.setTextFill(Color.web(iconC));
+                iconBox.getChildren().add(icon);
 
-            Button mr = new Button("Mark Resolved");
-            mr.setStyle("-fx-background-color: " + SECONDARY
-                    + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 12; -fx-font-size: 12px; -fx-cursor: hand;");
-            btns.getChildren().addAll(vd, mr);
-            info2.getChildren().addAll(aTitle, aDesc, btns);
+                VBox info2 = new VBox(4);
+                HBox.setHgrow(info2, Priority.ALWAYS);
 
-            Label time = new Label(a[3]);
-            time.setFont(Font.font("Segoe UI", 11));
-            time.setTextFill(Color.web(MUTED_FG()));
-            top.getChildren().addAll(iconBox, info2, time);
-            card.getChildren().add(top);
-            alertsList.getChildren().add(card);
+                Label aTitle = new Label(a[1]);
+                aTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+                aTitle.setTextFill(Color.web(iconC));
+
+                Label aId = new Label(a[2]);
+                aId.setFont(Font.font("Segoe UI", 11));
+                aId.setTextFill(Color.web(MUTED_FG()));
+
+                Label aDesc = new Label(a[4]);
+                aDesc.setFont(Font.font("Segoe UI", 13));
+                aDesc.setTextFill(Color.web(TEXT()));
+                aDesc.setWrapText(true);
+
+                HBox btns = new HBox(8);
+                btns.setPadding(new Insets(8, 0, 0, 0));
+                Button vd = new Button("View Details");
+                vd.setStyle("-fx-background-color: " + PRIMARY
+                        + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 6 16;"
+                        + " -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+                final String[] alertData = a;
+                vd.setOnAction(e -> root.setCenter(buildAlertDetailView(alertData)));
+
+                Button mr = new Button("Mark Resolved");
+                mr.setStyle("-fx-background-color: transparent; -fx-text-fill: " + SECONDARY
+                        + "; -fx-border-color: " + SECONDARY
+                        + "; -fx-border-radius: 4; -fx-padding: 6 16;"
+                        + " -fx-font-size: 12px; -fx-cursor: hand; -fx-font-weight: bold;");
+                // Mark resolved: navigate back (auto-refresh will reflect change)
+                mr.setOnAction(e -> root.setCenter(buildAlertsPage()));
+                btns.getChildren().addAll(vd, mr);
+
+                info2.getChildren().addAll(aTitle, aId, aDesc, btns);
+
+                Label time = new Label(a[3]);
+                time.setFont(Font.font("Segoe UI", 11));
+                time.setTextFill(Color.web(MUTED_FG()));
+
+                top.getChildren().addAll(iconBox, info2, time);
+                card.getChildren().add(top);
+                alertsList.getChildren().add(card);
+            }
         }
 
-        page.getChildren().addAll(new VBox(4, title, sub), stats, activeTitle, alertsList);
+        page.getChildren().addAll(new VBox(4, title, sub), refreshRow, stats, activeTitle, alertsList);
         return wrapScroll(page);
+    }
+
+    /**
+     * Generates real-time alerts by inspecting live database data for the
+     * admin's assigned organization.
+     */
+    private java.util.List<String[]> generateOrgAlerts() {
+        java.util.List<String[]> result = new java.util.ArrayList<>();
+        List<Child> orgChildren = getChildrenForOrganization();
+        String now = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        int alertId = 1;
+
+        for (Child child : orgChildren) {
+            String childCode = "CH-" + String.format("%04d", child.getId());
+
+            // Alert: child has no sponsor
+            if (child.getSponsorId() == null || child.getSponsorId() == 0) {
+                result.add(new String[]{
+                    "warning",
+                    "Child Without Sponsor",
+                    "ALT-" + String.format("%03d", alertId++),
+                    now,
+                    child.getName() + " (" + childCode + ") has no assigned sponsor.",
+                    childCode
+                });
+            }
+
+            // Alert: Inactive children
+            if ("Inactive".equalsIgnoreCase(child.getStatus())) {
+                result.add(new String[]{
+                    "critical",
+                    "Inactive Child Record",
+                    "ALT-" + String.format("%03d", alertId++),
+                    now,
+                    child.getName() + " (" + childCode + ") is marked Inactive. Please review their status.",
+                    childCode
+                });
+            }
+
+            // Alert: No medical records for this child
+            java.util.List<MedicalRecord> medRecords = medicalRecordService.getRecordsByChildId(child.getId());
+            if (medRecords == null || medRecords.isEmpty()) {
+                result.add(new String[]{
+                    "warning",
+                    "Missing Medical Records",
+                    "ALT-" + String.format("%03d", alertId++),
+                    now,
+                    child.getName() + " (" + childCode + ") has no medical records on file.",
+                    childCode
+                });
+            }
+
+            // Alert: No education records for this child
+            java.util.List<EducationRecord> eduRecords = educationRecordService.getRecordsByChildId(child.getId());
+            if (eduRecords == null || eduRecords.isEmpty()) {
+                result.add(new String[]{
+                    "info",
+                    "Missing Education Records",
+                    "ALT-" + String.format("%03d", alertId++),
+                    now,
+                    child.getName() + " (" + childCode + ") has no education records on file.",
+                    childCode
+                });
+            }
+
+            // Alert: High expense for a single child (over 10,000 total)
+            List<Expense> childExpenses = expenseService.getByChildId(child.getId());
+            double totalExpense = childExpenses.stream().mapToDouble(Expense::getAmount).sum();
+            if (totalExpense > 10000) {
+                result.add(new String[]{
+                    "critical",
+                    "High Cumulative Expense",
+                    "ALT-" + String.format("%03d", alertId++),
+                    now,
+                    child.getName() + " (" + childCode + ") has accumulated \u09F3"
+                        + String.format("%,.0f", totalExpense) + " in expenses.",
+                    childCode
+                });
+            }
+        }
+
+        // Organization-level alert: no children in this organization
+        if (orgChildren.isEmpty()) {
+            result.add(new String[]{
+                "warning",
+                "No Children Registered",
+                "ALT-" + String.format("%03d", alertId++),
+                now,
+                "Your organization has no children registered in the system.",
+                "-"
+            });
+        }
+
+        return result;
     }
 
     // ═══════════ REPORTS PAGE ═══════════
@@ -2340,7 +2584,7 @@ public class OrgAdminController {
                     String selectedType = rtCombo.getValue();
                     if ("Child Welfare Summary".equals(selectedType)) {
                         fw.write("Child ID,Name,Age,Gender,Status,Organization\n");
-                        for (Child c : childService.getAllChildren()) {
+                        for (Child c : getChildrenForOrganization()) {
                             fw.write(String.format("%d,%s,%d,%s,%s,%s\n",
                                     c.getId(), c.getName(), c.getAge(),
                                     c.getGender() != null ? c.getGender() : "",
@@ -2642,17 +2886,70 @@ public class OrgAdminController {
         card.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
                 + "; -fx-border-width: 1; -fx-background-radius: 8; -fx-border-radius: 8;");
 
-        VBox categoryField = formField("Category", "");
+        // Child Info Box
+        VBox childInfoBox = new VBox(8);
+        childInfoBox.setPadding(new Insets(16));
+        childInfoBox.setStyle("-fx-background-color: " + MUTED() + "; -fx-background-radius: 8;");
+        
+        if (selectedChild != null) {
+            Label childName = new Label("Child: " + selectedChild.getName());
+            childName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 15));
+            childName.setTextFill(Color.web(TEXT()));
+            
+            Label childDetails = new Label("ID: CH-" + String.format("%04d", selectedChild.getId()) + " | Age: " + selectedChild.getAge());
+            childDetails.setFont(Font.font("Segoe UI", 13));
+            childDetails.setTextFill(Color.web(MUTED_FG()));
+            
+            Label childOrg = new Label("Organization: " + (selectedChild.getOrganization() != null ? selectedChild.getOrganization() : "N/A"));
+            childOrg.setFont(Font.font("Segoe UI", 13));
+            childOrg.setTextFill(Color.web(MUTED_FG()));
+            
+            childInfoBox.getChildren().addAll(childName, childDetails, childOrg);
+        } else {
+            Label noChild = new Label("No specific child selected. Recording as general expense.");
+            noChild.setTextFill(Color.web(WARNING));
+            childInfoBox.getChildren().add(noChild);
+        }
+
+        // Category ComboBox
+        Label catLabel = new Label("Category");
+        catLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        catLabel.setTextFill(Color.web(TEXT()));
+        ComboBox<String> catBox = new ComboBox<>();
+        catBox.getItems().addAll("Education", "Medical", "Food & Nutrition", "Clothing", "Housing", "General Welfare", "Other");
+        catBox.setPromptText("Select category");
+        catBox.setMaxWidth(Double.MAX_VALUE);
+        catBox.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-radius: 4; -fx-padding: 4; -fx-text-fill: " + TEXT() + ";");
+        // Apply styling for selected text
+        catBox.setButtonCell(new ListCell<String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item);
+                    setStyle("-fx-text-fill: " + TEXT() + ";");
+                }
+            }
+        });
+        VBox categoryField = new VBox(8, catLabel, catBox);
+
         VBox amountField = formField("Amount (\u09F3)", "");
-        VBox descField = formFieldArea("Description", "");
 
         Button save = new Button("Save Record");
         save.setStyle("-fx-background-color: " + PRIMARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
         save.setOnAction(e -> {
             TextField amtTf = (TextField) amountField.getChildren().get(1);
-            TextField catTf = (TextField) categoryField.getChildren().get(1);
-            TextArea descTa = (TextArea) descField.getChildren().get(1);
+            String selectedCategory = catBox.getValue();
+            
+            if (selectedCategory == null || selectedCategory.trim().isEmpty()) {
+                showAlert("Warning", "Please select a category.");
+                return;
+            }
+            
             String amtText = amtTf.getText().trim();
             if (amtText.isEmpty()) {
                 showAlert("Warning", "Amount is required.");
@@ -2662,26 +2959,27 @@ public class OrgAdminController {
             try {
                 amount = Double.parseDouble(amtText);
             } catch (NumberFormatException ex) {
-                showAlert("Warning", "Amount must be a number.");
+                showAlert("Warning", "Amount must be a valid number.");
                 return;
             }
+            
             // Save expense to DB
             model.entity.Expense expense = new model.entity.Expense();
             expense.setChildId(selectedChild != null ? selectedChild.getId() : 0);
-            expense.setCategory(catTf.getText().trim());
+            expense.setCategory(selectedCategory);
             expense.setAmount(amount);
-            expense.setDescription(descTa.getText().trim());
+            expense.setDescription(""); // Purpose option removed as requested
             expense.setDate(LocalDate.now().toString());
             expenseService.save(expense);
             systemLogService.save(new SystemLog("Expense",
-                    "Recorded expense: " + catTf.getText().trim() + " - " + amtText,
+                    "Recorded expense: " + selectedCategory + " - " + amtText,
                     user.getUsername(),
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
             showAlert("Success", "Expense recorded successfully!");
             root.setCenter(buildSponsorshipPage());
         });
 
-        card.getChildren().addAll(categoryField, amountField, descField, new Separator(), save);
+        card.getChildren().addAll(childInfoBox, categoryField, amountField, new Separator(), save);
 
         page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);

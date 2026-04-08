@@ -2001,6 +2001,18 @@ public class AdminController {
         // Role selection (only for new user)
         int currentRow = 4;
         ComboBox<String> roleCombo = null;
+        
+        // Organization selection (shown if Organization Admin)
+        Label orgLbl = new Label("Organization");
+        orgLbl.setTextFill(Color.web(TEXT()));
+        orgLbl.setVisible(false);
+        
+        ComboBox<String> orgCombo = new ComboBox<>();
+        orgCombo.getItems().addAll("Hope Foundation", "Bright Future NGO", "Sunrise Academy", "Community Care Center", "Other");
+        orgCombo.setPromptText("Select organization");
+        orgCombo.setStyle(fieldStyle + " -fx-background-radius: 4;");
+        orgCombo.setVisible(false);
+
         if (userToEdit == null) {
             Label lbl4 = new Label("Role");
             lbl4.setTextFill(Color.web(TEXT()));
@@ -2048,6 +2060,12 @@ public class AdminController {
                     }
                 }
             });
+            
+            roleComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+                boolean isOrgAdmin = "Organization Admin".equals(newVal);
+                orgLbl.setVisible(isOrgAdmin);
+                orgCombo.setVisible(isOrgAdmin);
+            });
 
             form.add(lbl4, 0, currentRow);
             form.add(roleComboBox, 1, currentRow);
@@ -2063,7 +2081,19 @@ public class AdminController {
             form.add(lbl4, 0, currentRow);
             form.add(roleLbl, 1, currentRow);
             currentRow++;
+            
+            if (userToEdit.getRole() == model.user.UserRole.ORGANIZATION_ADMIN) {
+                orgLbl.setVisible(true);
+                orgCombo.setVisible(true);
+                if (userToEdit.getOrganization() != null) {
+                    orgCombo.setValue(userToEdit.getOrganization());
+                }
+            }
         }
+        
+        form.add(orgLbl, 0, currentRow);
+        form.add(orgCombo, 1, currentRow);
+        currentRow++;
 
         // Approval status
         CheckBox approvedCb = new CheckBox("Approved");
@@ -2146,6 +2176,11 @@ public class AdminController {
                 if (newUser != null) {
                     newUser.setEmail(email);
                     newUser.setApproved(approvedCb.isSelected());
+                    
+                    if ("Organization Admin".equals(selectedRole)) {
+                        newUser.setOrganization(orgCombo.getValue());
+                    }
+                    
                     boolean created = userService.createUser(newUser);
                     if (created) {
                         isShowingForm = false;
@@ -2160,6 +2195,10 @@ public class AdminController {
                 userToEdit.setUsername(username);
                 userToEdit.setEmail(email);
                 userToEdit.setApproved(approvedCb.isSelected());
+                
+                if (userToEdit.getRole() == model.user.UserRole.ORGANIZATION_ADMIN) {
+                    userToEdit.setOrganization(orgCombo.getValue());
+                }
 
                 // Update password only if new password is provided
                 if (!password.isEmpty()) {
