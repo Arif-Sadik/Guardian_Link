@@ -528,7 +528,7 @@ public class OrgAdminController {
         logoutSection.getChildren().add(logoutBtn);
 
         // Version label
-        Label ver = new Label("v1.0.0 | Academic Project");
+        Label ver = new Label("v1.1.0 | CSE-220 project");
         ver.setFont(Font.font("Segoe UI", 11));
         ver.setTextFill(Color.web(MUTED_FG()));
         ver.setPadding(new Insets(8, 16, 16, 16));
@@ -900,8 +900,8 @@ public class OrgAdminController {
         HBox.setHgrow(topSpacer, Priority.ALWAYS);
         topRow.getChildren().addAll(new VBox(4, title, sub), topSpacer, addChildBtn);
 
-        // Load all children from database
-        List<Child> allChildren = childService.getAllChildren();
+        // Load only children from this organization
+        List<Child> allChildren = getChildrenForOrganization();
 
         // Stats row
         int activeCount = (int) allChildren.stream()
@@ -1690,7 +1690,18 @@ public class OrgAdminController {
         VBox ageField = formField("Age", "");
         VBox genderField = formField("Gender", "");
         VBox dobField = formField("Date of Birth", "");
-        VBox orgField = formField("Organization", "");
+        
+        // Organization field - read-only, auto-populated with OrgAdmin's organization
+        Label orgLabel = new Label("Organization");
+        orgLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        orgLabel.setTextFill(Color.web(TEXT()));
+        TextField orgField_display = new TextField(user.getOrganization() != null ? user.getOrganization() : "");
+        orgField_display.setEditable(false);
+        orgField_display.setStyle("-fx-background-color: " + MUTED() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-font-size: 13px;"
+                + "-fx-text-fill: " + TEXT() + ";");
+        VBox orgField = new VBox(8);
+        orgField.getChildren().addAll(orgLabel, orgField_display);
         
         // Photo upload
         Label photoLabel = new Label("Profile Photo");
@@ -1791,7 +1802,8 @@ public class OrgAdminController {
             }
             newChild.setGender(((TextField) genderField.getChildren().get(1)).getText().trim());
             newChild.setDateOfBirth(((TextField) dobField.getChildren().get(1)).getText().trim());
-            newChild.setOrganization(((TextField) orgField.getChildren().get(1)).getText().trim());
+            // Automatically set organization to the current OrgAdmin's organization
+            newChild.setOrganization(user.getOrganization());
             newChild.setStatus(((ComboBox<String>) statusField.getChildren().get(1)).getValue());
             newChild.setPhotoPath(newPhotoPath[0]);
             
@@ -1856,7 +1868,7 @@ public class OrgAdminController {
         stats.getChildren().addAll(
                 statCard("Total Received", totalRecvStr, "All time", SECONDARY),
                 statCard("Total Donations", String.valueOf(allDonations.size()), "Records", MUTED_FG()),
-                statCard("Children Covered", String.valueOf(childService.getAllChildren().size()), "All time",
+                statCard("Children Covered", String.valueOf(getChildrenForOrganization().size()), "All time",
                         MUTED_FG()),
                 statCard("System Logs", String.valueOf(systemLogService.getCount()), "Entries", MUTED_FG()));
 
@@ -2480,7 +2492,7 @@ public class OrgAdminController {
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
 
             if ("Child Welfare Summary".equals(selectedType)) {
-                List<Child> children = childService.getAllChildren();
+                List<Child> children = getChildrenForOrganization();
                 Label rpTitle = new Label("Child Welfare Summary — " + drCombo.getValue());
                 rpTitle.setFont(Font.font("Segoe UI", FontWeight.SEMI_BOLD, 15));
                 rpTitle.setTextFill(Color.web(TEXT()));
@@ -2828,14 +2840,26 @@ public class OrgAdminController {
 
         VBox donorField = formField("Donor Name", "");
         VBox amountField = formField("Amount (\u09F3)", "");
-        VBox purposeField = formField("Purpose", "General Welfare");
+        
+        // Category ComboBox
+        Label categoryLabel = new Label("Category");
+        categoryLabel.setFont(Font.font("Segoe UI", FontWeight.MEDIUM, 13));
+        categoryLabel.setTextFill(Color.web(TEXT()));
+        ComboBox<String> categoryCombo = new ComboBox<>();
+        categoryCombo.getItems().addAll("Medical", "Education", "Food", "Clothing", "Housing", "General Welfare", "Emergency", "Other");
+        categoryCombo.setValue("General Welfare");
+        categoryCombo.setMaxWidth(Double.MAX_VALUE);
+        categoryCombo.setStyle("-fx-background-color: " + CARD() + "; -fx-border-color: " + BORDER()
+                + "; -fx-border-width: 1; -fx-border-radius: 4; -fx-background-radius: 4; -fx-padding: 8 12; -fx-text-fill: "
+                + TEXT() + ";");
+        VBox categoryField = new VBox(8);
+        categoryField.getChildren().addAll(categoryLabel, categoryCombo);
 
         Button save = new Button("Save Record");
         save.setStyle("-fx-background-color: " + SECONDARY
                 + "; -fx-text-fill: white; -fx-background-radius: 4; -fx-padding: 10 24; -fx-font-weight: bold; -fx-cursor: hand;");
         save.setOnAction(e -> {
             TextField amtTf = (TextField) amountField.getChildren().get(1);
-            TextField purposeTf = (TextField) purposeField.getChildren().get(1);
             String amtText = amtTf.getText().trim();
             if (amtText.isEmpty()) {
                 showAlert("Warning", "Amount is required.");
@@ -2852,7 +2876,7 @@ public class OrgAdminController {
             d.setDonorId(user.getId());
             d.setChildId(selectedChild != null ? selectedChild.getId() : 0);
             d.setAmount(amount);
-            d.setPurpose(purposeTf.getText().trim());
+            d.setPurpose(categoryCombo.getValue());
             d.setDate(LocalDate.now().toString());
             d.setStatus("Completed");
             donationService.save(d);
@@ -2863,7 +2887,7 @@ public class OrgAdminController {
             root.setCenter(buildSponsorshipPage());
         });
 
-        card.getChildren().addAll(donorField, amountField, purposeField, new Separator(), save);
+        card.getChildren().addAll(donorField, amountField, categoryField, new Separator(), save);
 
         page.getChildren().addAll(backBtn, title, card);
         return wrapScroll(page);

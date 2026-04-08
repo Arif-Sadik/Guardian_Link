@@ -507,7 +507,7 @@ public class DonorController {
         logoutSection.getChildren().add(logoutBtn);
 
         // Version label
-        Label ver = new Label("v1.0.0 | Academic Project");
+        Label ver = new Label("v1.1.0 | CSE-220 project");
         ver.setFont(Font.font("Segoe UI", 11));
         ver.setTextFill(Color.web(MUTED_FG()));
         ver.setPadding(new Insets(8, 16, 16, 16));
@@ -522,6 +522,19 @@ public class DonorController {
         btn.setAlignment(Pos.CENTER_LEFT);
         btn.setFont(Font.font("Segoe UI", 13));
         styleSidebarBtn(btn, pageId.equals(activePage));
+        
+        // Add hover effects
+        btn.setOnMouseEntered(e -> {
+            if (!pageId.equals(activePage)) {
+                btn.setStyle("-fx-background-color: " + MUTED() + "; -fx-text-fill: " + TEXT()
+                        + "; -fx-background-radius: 4; -fx-padding: 8 12; -fx-cursor: hand; -fx-font-size: 13px;");
+            }
+        });
+        
+        btn.setOnMouseExited(e -> {
+            styleSidebarBtn(btn, pageId.equals(activePage));
+        });
+        
         btn.setOnAction(e -> {
             activePage = pageId;
             refreshSidebar();
@@ -564,6 +577,10 @@ public class DonorController {
             return "sponsorship";
         if (text.contains("Donation"))
             return "donations";
+        if (text.contains("Alerts"))
+            return "alerts";
+        if (text.contains("Inquiries"))
+            return "inquiries";
         if (text.contains("Reports"))
             return "reports";
         return "";

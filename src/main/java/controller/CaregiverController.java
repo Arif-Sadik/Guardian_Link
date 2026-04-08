@@ -414,6 +414,106 @@ public class CaregiverController {
 
         dialog.showAndWait();
     }
+    
+    private void showEditMedicalRecordDialog(MedicalRecord record, int childId) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Edit Medical Record");
+        dialog.setHeaderText("Update medical information");
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+        
+        TextField lastCheckupField = new TextField(record.getLastCheckup() != null ? record.getLastCheckup() : "");
+        lastCheckupField.setPromptText("Last checkup date (YYYY-MM-DD)");
+        
+        TextField bloodGroupField = new TextField(record.getBloodGroup() != null ? record.getBloodGroup() : "");
+        bloodGroupField.setPromptText("Blood group");
+        
+        TextArea medicalConditionArea = new TextArea(record.getMedicalCondition() != null ? record.getMedicalCondition() : "");
+        medicalConditionArea.setPromptText("Medical condition/notes");
+        medicalConditionArea.setWrapText(true);
+        medicalConditionArea.setPrefHeight(80);
+        
+        grid.add(new Label("Last Checkup:"), 0, 0);
+        grid.add(lastCheckupField, 1, 0);
+        grid.add(new Label("Blood Group:"), 0, 1);
+        grid.add(bloodGroupField, 1, 1);
+        grid.add(new Label("Medical Condition:"), 0, 2);
+        grid.add(medicalConditionArea, 1, 2);
+        
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == ButtonType.OK) {
+                record.setLastCheckup(lastCheckupField.getText().trim());
+                record.setBloodGroup(bloodGroupField.getText().trim());
+                record.setMedicalCondition(medicalConditionArea.getText().trim());
+                medicalRecordService.updateRecord(record);
+                
+                systemLogService.save(new SystemLog("Medical Record Update", 
+                    "Updated medical record for child ID " + childId, user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Medical record updated successfully!");
+                alert.showAndWait();
+            }
+            return null;
+        });
+        
+        dialog.showAndWait();
+    }
+    
+    private void showEditEducationRecordDialog(EducationRecord record, int childId) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Edit Education Record");
+        dialog.setHeaderText("Update education information");
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20));
+        
+        TextField schoolNameField = new TextField(record.getSchoolName() != null ? record.getSchoolName() : "");
+        schoolNameField.setPromptText("School name");
+        
+        TextField gradeField = new TextField(record.getGrade() != null ? record.getGrade() : "");
+        gradeField.setPromptText("Grade/Class");
+        
+        Spinner<Integer> attendanceSpinner = new Spinner<>(0, 100, (int)record.getAttendancePercentage());
+        attendanceSpinner.setPrefWidth(150);
+        
+        grid.add(new Label("School Name:"), 0, 0);
+        grid.add(schoolNameField, 1, 0);
+        grid.add(new Label("Grade:"), 0, 1);
+        grid.add(gradeField, 1, 1);
+        grid.add(new Label("Attendance %:"), 0, 2);
+        grid.add(attendanceSpinner, 1, 2);
+        
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == ButtonType.OK) {
+                record.setSchoolName(schoolNameField.getText().trim());
+                record.setGrade(gradeField.getText().trim());
+                record.setAttendancePercentage(attendanceSpinner.getValue());
+                educationRecordService.updateRecord(record);
+                
+                systemLogService.save(new SystemLog("Education Record Update", 
+                    "Updated education record for child ID " + childId, user.getUsername(),
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))));
+                
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Education record updated successfully!");
+                alert.showAndWait();
+            }
+            return null;
+        });
+        
+        dialog.showAndWait();;
+    }
 
     // ═══════════ SIDEBAR ═══════════
     private VBox buildSidebar() {
@@ -902,7 +1002,16 @@ public class CaregiverController {
                 Label recDesc = new Label(rec.getMedicalCondition() != null ? rec.getMedicalCondition() : "");
                 recDesc.setFont(Font.font("Segoe UI", 13));
                 recDesc.setTextFill(Color.web(TEXT()));
-                recRow.getChildren().addAll(recDate, recType, recDesc);
+                
+                Region spacer = new Region();
+                HBox.setHgrow(spacer, Priority.ALWAYS);
+                
+                Button editMedBtn = new Button("Edit");
+                editMedBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 4 12; -fx-background-radius: 3; -fx-cursor: hand;");
+                final MedicalRecord medRec = rec;
+                editMedBtn.setOnAction(e -> showEditMedicalRecordDialog(medRec, childId));
+                
+                recRow.getChildren().addAll(recDate, recType, recDesc, spacer, editMedBtn);
                 medList.getChildren().add(recRow);
             }
             medCard.getChildren().addAll(medTitle, medList);
@@ -937,7 +1046,16 @@ public class CaregiverController {
                 Label recPerf = new Label(String.format("%.0f%% attendance", rec.getAttendancePercentage()));
                 recPerf.setFont(Font.font("Segoe UI", 13));
                 recPerf.setTextFill(Color.web(SECONDARY));
-                recRow.getChildren().addAll(recSchool, recGrade, recPerf);
+                
+                Region spacer2 = new Region();
+                HBox.setHgrow(spacer2, Priority.ALWAYS);
+                
+                Button editEduBtn = new Button("Edit");
+                editEduBtn.setStyle("-fx-background-color: " + PRIMARY + "; -fx-text-fill: white; -fx-padding: 4 12; -fx-background-radius: 3; -fx-cursor: hand;");
+                final EducationRecord eduRec = rec;
+                editEduBtn.setOnAction(e -> showEditEducationRecordDialog(eduRec, childId));
+                
+                recRow.getChildren().addAll(recSchool, recGrade, recPerf, spacer2, editEduBtn);
                 eduList.getChildren().add(recRow);
             }
             eduCard.getChildren().addAll(eduTitle, eduList);

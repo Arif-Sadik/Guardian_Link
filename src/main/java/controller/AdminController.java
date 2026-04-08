@@ -545,7 +545,7 @@ public class AdminController {
         logoutSection.getChildren().add(logoutBtn);
 
         // Version label
-        Label ver = new Label("v1.0.0 | Academic Project");
+        Label ver = new Label("v1.1.0 | CSE-220 project");
         ver.setFont(Font.font("Segoe UI", 11));
         ver.setTextFill(Color.web(MUTED_FG()));
         ver.setPadding(new Insets(8, 16, 16, 16));
